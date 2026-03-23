@@ -6,9 +6,9 @@ Telegram dating bot на микросервисной архитектуре с 
 
 | Документ                                              | Описание                                                           |
 | ----------------------------------------------------- | ------------------------------------------------------------------ |
-| [docs/ru/services.md](docs/ru/services.md)            | Границы сервисов, зоны ответственности, паттерны коммуникации      |
-| [docs/ru/architecture.md](docs/ru/architecture.md)    | Диаграмма системы, RabbitMQ routing, Redis keys, каталог событий   |
-| [docs/ru/database-schema.md](docs/ru/database-schema.md) | Таблицы PostgreSQL, индексы, ER-диаграмма                       |
+| [docs/services.md](docs/ru/services.md)            | Границы сервисов, зоны ответственности, паттерны коммуникации      |
+| [docs/architecture.md](docs/ru/architecture.md)    | Диаграмма системы, RabbitMQ routing, Redis keys, каталог событий   |
+| [docs/database-schema.md](docs/ru/database-schema.md) | Таблицы PostgreSQL, индексы, ER-диаграмма                       |
 
 ## Роадмап
 
