@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_DB: drizzy
+      POSTGRES_USER: drizzy
+      POSTGRES_PASSWORD: drizzy
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drizzy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  profile-service:
+    build:
+      context: .
+      dockerfile: profile-service/Dockerfile
+    ports: ["8080:8080"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_DSN: postgres://drizzy:drizzy@postgres:5432/drizzy?sslmode=disable
+      REDIS_ADDR: redis:6379
+      PORT: "8080"
+
+  bot-service:
+    build:
+      context: .
+      dockerfile: bot-service/Dockerfile
+    depends_on:
+      profile-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    environment:
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
+      PROFILE_API_URL: http://profile-service:8080
+      REDIS_ADDR: redis:6379
+
+volumes:
+  pg_data:

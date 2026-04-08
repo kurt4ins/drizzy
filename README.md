@@ -60,7 +60,7 @@ drizzy/
 │   │   ├── cache/                  # управление Redis sorted set / list
 │   │   └── worker/                 # определения задач asynq
 │   └── Dockerfile
-├── migrations/                     # SQL-миграции (golang-migrate)
+├── migrations/                     # SQL-миграции (goose)
 └── docs/
     ├── ru/                         # документация на русском
     ├── services.md
