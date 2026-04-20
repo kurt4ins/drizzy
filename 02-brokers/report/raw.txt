@@ -1,0 +1,442 @@
+=== EXPERIMENT 1: BASELINE (size=1024B, rate=5000) ===
+
+>>> broker=rabbitmq  size=1024B  rate=5000 msg/s
+queue purged
+  PRODUCER: broker=rabbitmq   size=1024B    rate=5000   dur=30s sent=149988 recv=0 lost=149988 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=rabbitmq   size=n/a      rate=0      dur=30s sent=0 recv=143540 lost=-143540 err=0 tput=4784 msg/s  p50=128µs p95=184µs p99=329µs max=8.391ms
+
+>>> broker=redis  size=1024B  rate=5000 msg/s
+ Container 02-brokers-redis-1 Restarting 
+ Container 02-brokers-redis-1 Started 
+1
+  PRODUCER: broker=redis      size=1024B    rate=5000   dur=30s sent=149960 recv=0 lost=149960 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=redis      size=n/a      rate=0      dur=30s sent=0 recv=139904 lost=-139904 err=0 tput=4663 msg/s  p50=128µs p95=180µs p99=233µs max=8.055ms
+
+=== EXPERIMENT 2: MESSAGE SIZE SWEEP (rate=5000) ===
+
+>>> broker=rabbitmq  size=128B  rate=5000 msg/s
+queue purged
+  PRODUCER: broker=rabbitmq   size=128B     rate=5000   dur=30s sent=150002 recv=0 lost=150002 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=rabbitmq   size=n/a      rate=0      dur=30s sent=0 recv=139841 lost=-139841 err=0 tput=4661 msg/s  p50=126µs p95=168µs p99=349µs max=13.207ms
+
+>>> broker=rabbitmq  size=1024B  rate=5000 msg/s
+queue purged
+  PRODUCER: broker=rabbitmq   size=1024B    rate=5000   dur=30s sent=150003 recv=0 lost=150003 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=rabbitmq   size=n/a      rate=0      dur=30s sent=0 recv=139846 lost=-139846 err=0 tput=4661 msg/s  p50=125µs p95=155µs p99=273µs max=3.997ms
+
+>>> broker=rabbitmq  size=10240B  rate=5000 msg/s
+queue purged
+  PRODUCER: broker=rabbitmq   size=10240B   rate=5000   dur=30s sent=149957 recv=0 lost=149957 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=rabbitmq   size=n/a      rate=0      dur=30s sent=0 recv=139846 lost=-139846 err=0 tput=4660 msg/s  p50=140µs p95=201µs p99=367µs max=9.143ms
+
+>>> broker=rabbitmq  size=102400B  rate=5000 msg/s
+queue purged
+  PRODUCER: broker=rabbitmq   size=102400B  rate=5000   dur=30s sent=148993 recv=0 lost=148993 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=rabbitmq   size=n/a      rate=0      dur=30s sent=0 recv=139802 lost=-139802 err=0 tput=4659 msg/s  p50=342µs p95=456µs p99=694µs max=16.927ms
+
+>>> broker=redis  size=128B  rate=5000 msg/s
+ Container 02-brokers-redis-1 Restarting 
+ Container 02-brokers-redis-1 Started 
+1
+  PRODUCER: broker=redis      size=128B     rate=5000   dur=30s sent=149892 recv=0 lost=149892 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=redis      size=n/a      rate=0      dur=30s sent=0 recv=139880 lost=-139880 err=0 tput=4663 msg/s  p50=132µs p95=187µs p99=267µs max=13.887ms
+
+>>> broker=redis  size=1024B  rate=5000 msg/s
+ Container 02-brokers-redis-1 Restarting 
+ Container 02-brokers-redis-1 Started 
+1
+  PRODUCER: broker=redis      size=1024B    rate=5000   dur=30s sent=149802 recv=0 lost=149802 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=redis      size=n/a      rate=0      dur=30s sent=0 recv=139680 lost=-139680 err=0 tput=4656 msg/s  p50=133µs p95=193µs p99=302µs max=16.415ms
+
+>>> broker=redis  size=10240B  rate=5000 msg/s
+ Container 02-brokers-redis-1 Restarting 
+ Container 02-brokers-redis-1 Started 
+1
+  PRODUCER: broker=redis      size=10240B   rate=5000   dur=30s sent=149676 recv=0 lost=149676 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=redis      size=n/a      rate=0      dur=30s sent=0 recv=139613 lost=-139613 err=0 tput=4654 msg/s  p50=190µs p95=351µs p99=799µs max=13.919ms
+
+>>> broker=redis  size=102400B  rate=5000 msg/s
+ Container 02-brokers-redis-1 Restarting 
+ Container 02-brokers-redis-1 Started 
+1
+redis: 2026/04/20 16:05:58 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:58 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:58 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:58 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+  PRODUCER: broker=redis      size=102400B  rate=5000   dur=30s sent=8340 recv=0 lost=8340 err=594 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: redis: 2026/04/20 16:05:58 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:58 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:58 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:58 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:05:59 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:00 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:01 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:02 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:03 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:04 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:05 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:06 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:07 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:08 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:09 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:10 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:11 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:12 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:13 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:14 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:15 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:15 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:15 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:15 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:15 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:15 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:16 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:16 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:16 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:16 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:16 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:16 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:16 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:16 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:17 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:17 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:17 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:17 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:17 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:17 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:17 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:17 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:18 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:18 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:18 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:18 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:18 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:18 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:18 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:18 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:19 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:19 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:19 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:19 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:19 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:19 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:19 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:19 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:20 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:20 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:20 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:20 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:20 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:20 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:20 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:20 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:21 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:21 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:21 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:21 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:21 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:21 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:21 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:22 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:22 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:22 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:22 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:22 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:22 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:22 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:23 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:23 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:23 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:23 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:23 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+redis: 2026/04/20 16:06:23 pool.go:617: redis: connection pool: failed to dial after 5 attempts: dial tcp [::1]:6379: connect: connection refused
+broker=redis      size=n/a      rate=0      dur=30s sent=0 recv=7067 lost=-7067 err=0 tput=236 msg/s  p50=118.911ms p95=396.031ms p99=14.467071s max=26.296319s
+
+=== EXPERIMENT 3: RATE SWEEP TO SATURATION (size=1024B) ===
+
+>>> broker=rabbitmq  size=1024B  rate=1000 msg/s
+queue purged
+  PRODUCER: broker=rabbitmq   size=1024B    rate=1000   dur=30s sent=29999 recv=0 lost=29999 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=rabbitmq   size=n/a      rate=0      dur=30s sent=0 recv=27966 lost=-27966 err=0 tput=932 msg/s  p50=600µs p95=1.049ms p99=1.485ms max=15.519ms
+
+>>> broker=rabbitmq  size=1024B  rate=5000 msg/s
+queue purged
+  PRODUCER: broker=rabbitmq   size=1024B    rate=5000   dur=30s sent=149984 recv=0 lost=149984 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=rabbitmq   size=n/a      rate=0      dur=30s sent=0 recv=139825 lost=-139825 err=0 tput=4661 msg/s  p50=127µs p95=188µs p99=673µs max=16.687ms
+
+>>> broker=rabbitmq  size=1024B  rate=10000 msg/s
+queue purged
+  PRODUCER: broker=rabbitmq   size=1024B    rate=10000  dur=30s sent=299964 recv=0 lost=299964 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=rabbitmq   size=n/a      rate=0      dur=30s sent=0 recv=279673 lost=-279673 err=0 tput=9322 msg/s  p50=173µs p95=280µs p99=510µs max=12.151ms
+
+>>> broker=rabbitmq  size=1024B  rate=20000 msg/s
+queue purged
+  PRODUCER: broker=rabbitmq   size=1024B    rate=20000  dur=30s sent=599611 recv=0 lost=599611 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=rabbitmq   size=n/a      rate=0      dur=30s sent=0 recv=558991 lost=-558991 err=0 tput=18631 msg/s  p50=977µs p95=1.547ms p99=18.735ms max=37.503ms
+
+>>> broker=rabbitmq  size=1024B  rate=50000 msg/s
+queue purged
+  PRODUCER: broker=rabbitmq   size=1024B    rate=50000  dur=30s sent=1344936 recv=0 lost=1344936 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=rabbitmq   size=n/a      rate=0      dur=30s sent=0 recv=1203386 lost=-1203386 err=0 tput=40087 msg/s  p50=537.599ms p95=999.935ms p99=1.054719s max=1.077247s
+
+>>> broker=redis  size=1024B  rate=1000 msg/s
+ Container 02-brokers-redis-1 Restarting 
+ Container 02-brokers-redis-1 Started 
+1
+  PRODUCER: broker=redis      size=1024B    rate=1000   dur=30s sent=29928 recv=0 lost=29928 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=redis      size=n/a      rate=0      dur=30s sent=0 recv=27902 lost=-27902 err=0 tput=930 msg/s  p50=299µs p95=549µs p99=1.154ms max=30.719ms
+
+>>> broker=redis  size=1024B  rate=5000 msg/s
+ Container 02-brokers-redis-1 Restarting 
+ Container 02-brokers-redis-1 Started 
+1
+  PRODUCER: broker=redis      size=1024B    rate=5000   dur=30s sent=149576 recv=0 lost=149576 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=redis      size=n/a      rate=0      dur=30s sent=0 recv=139452 lost=-139452 err=0 tput=4648 msg/s  p50=143µs p95=206µs p99=431µs max=33.727ms
+
+>>> broker=redis  size=1024B  rate=10000 msg/s
+ Container 02-brokers-redis-1 Restarting 
+ Container 02-brokers-redis-1 Started 
+1
+  PRODUCER: broker=redis      size=1024B    rate=10000  dur=30s sent=298868 recv=0 lost=298868 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=redis      size=n/a      rate=0      dur=30s sent=0 recv=278764 lost=-278764 err=0 tput=9292 msg/s  p50=289µs p95=691µs p99=1.166ms max=18.783ms
+
+>>> broker=redis  size=1024B  rate=20000 msg/s
+ Container 02-brokers-redis-1 Restarting 
+ Container 02-brokers-redis-1 Started 
+1
+  PRODUCER: broker=redis      size=1024B    rate=20000  dur=30s sent=471098 recv=0 lost=471098 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=redis      size=n/a      rate=0      dur=30s sent=0 recv=429392 lost=-429392 err=0 tput=14313 msg/s  p50=66.239ms p95=99.071ms p99=106.623ms max=153.599ms
+
+>>> broker=redis  size=1024B  rate=50000 msg/s
+ Container 02-brokers-redis-1 Restarting 
+ Container 02-brokers-redis-1 Started 
+1
+  PRODUCER: broker=redis      size=1024B    rate=50000  dur=30s sent=473540 recv=0 lost=473540 err=0 tput=0 msg/s  p50=0s p95=0s p99=0s max=0s
+  CONSUMER: broker=redis      size=n/a      rate=0      dur=30s sent=0 recv=433185 lost=-433185 err=0 tput=14440 msg/s  p50=71.231ms p95=121.983ms p99=130.623ms max=194.687ms
+
+=== DONE. Results written to report/results.csv ===

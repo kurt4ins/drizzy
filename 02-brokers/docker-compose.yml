@@ -1,0 +1,14 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports: ["5672:5672", "15672:15672"]
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: "1024M" }
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: "1024M" }
