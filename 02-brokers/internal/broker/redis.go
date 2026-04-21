@@ -23,8 +23,6 @@ func NewRedis(addr string) (*Redis, error) {
 	if err := client.Ping(context.Background()).Err(); err != nil {
 		return nil, err
 	}
-	// Create consumer group; MKSTREAM creates the stream if it doesn't exist.
-	// Ignore BUSYGROUP error — group already exists from a previous run.
 	err := client.XGroupCreateMkStream(context.Background(), redisStream, redisGroup, "0").Err()
 	if err != nil && err.Error() != "BUSYGROUP Consumer Group name already exists" {
 		return nil, err
@@ -48,21 +46,19 @@ func (r *Redis) Subscribe(ctx context.Context, handler func([]byte, time.Time)) 
 			Group:    redisGroup,
 			Consumer: redisConsumer,
 			Streams:  []string{redisStream, ">"},
-			Count:    100,         // batch up to 100 msgs per call
-			Block:    time.Second, // block up to 1s waiting for new messages
+			Count:    100,
+			Block:    time.Second,
 		}).Result()
 		if err != nil {
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				return nil
 			}
-			// Timeout waiting for messages — loop and try again
 			continue
 		}
 		for _, stream := range streams {
 			for _, msg := range stream.Messages {
 				body, _ := msg.Values[redisBodyField].(string)
-				handler([]byte(body), time.Time{}) // no broker-level timestamp in Redis
-				// Acknowledge so messages don't pile up in the PEL
+				handler([]byte(body), time.Time{})
 				r.client.XAck(ctx, redisStream, redisGroup, msg.ID)
 			}
 		}

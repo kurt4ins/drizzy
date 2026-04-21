@@ -34,13 +34,13 @@ func NewRabbitMQ(url string) (*RabbitMQ, error) {
 
 func (r *RabbitMQ) Publish(_ context.Context, payload []byte) error {
 	return r.ch.Publish(
-		"",          // default exchange
-		rabbitQueue, // routing key = queue name
-		false,       // mandatory
-		false,       // immediate
+		"",
+		rabbitQueue,
+		false,
+		false,
 		amqp.Publishing{
 			ContentType:  "application/octet-stream",
-			DeliveryMode: amqp.Transient, // don't persist to disk — max throughput
+			DeliveryMode: amqp.Transient,
 			Body:         payload,
 		},
 	)
@@ -49,11 +49,11 @@ func (r *RabbitMQ) Publish(_ context.Context, payload []byte) error {
 func (r *RabbitMQ) Subscribe(ctx context.Context, handler func([]byte, time.Time)) error {
 	msgs, err := r.ch.Consume(
 		rabbitQueue,
-		"",    // auto-generated consumer tag
-		true,  // auto-ack — no manual ack needed for benchmarking
-		false, // exclusive
-		false, // no-local
-		false, // no-wait
+		"",
+		true,
+		false,
+		false,
+		false,
 		nil,
 	)
 	if err != nil {

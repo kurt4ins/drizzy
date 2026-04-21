@@ -47,7 +47,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), *duration)
 	defer cancel()
 
-	// Catch Ctrl-C too
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
@@ -55,8 +54,6 @@ func main() {
 		cancel()
 	}()
 
-	// Rate is shared across all goroutines via a single limiter.
-	// Burst = numWorkers so they can all fire at once without stalling.
 	limiter := rate.NewLimiter(rate.Limit(*rateLimit), *numWorkers)
 
 	var wg sync.WaitGroup
@@ -67,15 +64,12 @@ func main() {
 				if ctx.Err() != nil {
 					return
 				}
-				if err := limiter.Wait(ctx); err != nil {
-					return // context done
-				}
+			if err := limiter.Wait(ctx); err != nil {
+				return
+			}
 
-				// Stamp send time in first 8 bytes so consumer can measure latency.
-				// binary.LittleEndian lets the consumer decode it without reflection.
-				binary.LittleEndian.PutUint64(payload[:8], uint64(time.Now().UnixNano()))
-				// Fill the rest with random bytes to avoid compression artifacts.
-				rand.Read(payload[8:])
+			binary.LittleEndian.PutUint64(payload[:8], uint64(time.Now().UnixNano()))
+			rand.Read(payload[8:])
 
 				if err := b.Publish(ctx, payload); err != nil {
 					col.RecordError()

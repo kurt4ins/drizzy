@@ -36,8 +36,6 @@ func main() {
 	var wg sync.WaitGroup
 	for i := 0; i < *numWorkers; i++ {
 		wg.Go(func() {
-			// Each goroutine gets its own broker connection.
-			// Sharing one channel across goroutines is not safe for amqp091-go.
 			var b broker.Broker
 			var err error
 			switch *brokerType {
@@ -70,6 +68,5 @@ func main() {
 
 	wg.Wait()
 
-	// Print with rate=0 since the consumer doesn't control the rate.
 	col.Summarize().Print(*brokerType, "n/a", 0)
 }
