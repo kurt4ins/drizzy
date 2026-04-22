@@ -44,8 +44,8 @@ func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	if req.Age < 18 || req.Age > 100 {
-		writeError(w, http.StatusBadRequest, "age must be between 18 and 100")
+	if req.Age < 1 || req.Age > 100 {
+		writeError(w, http.StatusBadRequest, "age must be between 1 and 100")
 		return
 	}
 	if req.Gender != "male" && req.Gender != "female" {

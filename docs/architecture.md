@@ -40,30 +40,32 @@ flowchart LR
 
 ## Паттерны коммуникации
 
-| Откуда → Куда          | Протокол  | Паттерн      | Назначение                                    |
-| ----------------------- | --------- | ------------ | --------------------------------------------- |
-| Bot → Profile           | HTTP/JSON | Синхронный   | Чтение/запись профилей, регистрация, фото      |
-| Bot → RabbitMQ          | AMQP      | Fire-and-forget | Публикация событий взаимодействия           |
-| RabbitMQ → Ranking      | AMQP      | Consumer     | Обновление поведенческой статистики            |
-| RabbitMQ → Bot          | AMQP      | Consumer     | Доставка уведомлений о мэтчах                 |
-| Ranking → Redis         | Redis     | Write        | Запись предварительно ранжированных списков     |
-| Bot → Redis             | Redis     | Read         | Извлечение следующего кандидата из prefetch-очереди |
-| Profile → Redis         | Redis     | Read         | Fallback при cache miss                        |
-| asynq → PostgreSQL      | SQL       | По расписанию| Периодический пересчёт рейтингов               |
+| Откуда → Куда          | Протокол  | Паттерн         | Назначение                                              |
+| ----------------------- | --------- | --------------- | ------------------------------------------------------- |
+| Bot → Profile           | HTTP/JSON | Синхронный      | Чтение/запись профилей, регистрация, фото               |
+| Bot → Ranking           | HTTP/JSON | Синхронный      | On-demand refill discovery queue при пустой очереди     |
+| Bot → RabbitMQ          | AMQP      | Fire-and-forget | Публикация событий взаимодействия                       |
+| RabbitMQ → Ranking      | AMQP      | Consumer        | Обновление статистики, детекция мэтчей, like.received   |
+| RabbitMQ → Bot          | AMQP      | Consumer        | Уведомления о мэтчах и о входящих лайках               |
+| Ranking → Redis         | Redis     | Write           | Запись предварительно ранжированных списков             |
+| Bot → Redis             | Redis     | Read            | Извлечение следующего кандидата из prefetch-очереди     |
+| asynq → PostgreSQL      | SQL       | По расписанию   | Периодический пересчёт рейтингов                        |
 
 ## RabbitMQ routing
 
 - **Producer:** Bot service — публикует события после нажатия пользователем like/skip.
 - **Exchange:** `drizzy.events` — тип **topic**, durable.
-- **Routing keys:** `interaction.liked`, `interaction.skipped`, `match.created`.
+- **Routing keys:** `interaction.liked`, `interaction.skipped`, `match.created`, `like.received`.
 - **Очереди:**
 
-| Очередь                  | Binding key            | Consumer        | Назначение                          |
-| ------------------------ | ---------------------- | --------------- | ----------------------------------- |
-| `behavior.aggregate`     | `interaction.*`        | Ranking service | Обновление `user_behavior_stats`    |
-| `match.notify`           | `match.created`        | Bot service     | Отправка уведомлений о мэтче в TG  |
-| `behavior.aggregate.dlq` | —                      | Ручная проверка | Dead-letter после макс. ретраев    |
-| `match.notify.dlq`       | —                      | Ручная проверка | Dead-letter после макс. ретраев    |
+| Очередь                  | Binding key            | Consumer        | Назначение                                        |
+| ------------------------ | ---------------------- | --------------- | ------------------------------------------------- |
+| `behavior.aggregate`     | `interaction.*`        | Ranking service | Обновление `user_behavior_stats`, детекция мэтчей |
+| `match.notify`           | `match.created`        | Bot service     | Персональное TG-уведомление о мэтче               |
+| `like.notify`            | `like.received`        | Bot service     | TG-уведомление «кто-то лайкнул тебя»             |
+| `behavior.aggregate.dlq` | —                      | Ручная проверка | Dead-letter после макс. ретраев                   |
+| `match.notify.dlq`       | —                      | Ручная проверка | Dead-letter после макс. ретраев                   |
+| `like.notify.dlq`        | —                      | Ручная проверка | Dead-letter после макс. ретраев                   |
 
 - **Durability:** durable exchange, durable queues, persistent messages для всех событий взаимодействия.
 - **Обработка ошибок:** у каждой очереди есть dead-letter exchange (`drizzy.dlx`), направляющий упавшие сообщения в соответствующую `.dlq`-очередь после 3 ретраев. Poison messages проверяются вручную через RabbitMQ management UI.
@@ -72,13 +74,16 @@ flowchart LR
 flowchart LR
   subgraph producers [Producers]
     Bot[Bot_service]
+    Rank2[Ranking_service]
   end
   subgraph rmq [RabbitMQ]
     EX["drizzy.events (topic)"]
     Q1[behavior.aggregate]
     Q2[match.notify]
+    Q3[like.notify]
     DLQ1[behavior.aggregate.dlq]
     DLQ2[match.notify.dlq]
+    DLQ3[like.notify.dlq]
   end
   subgraph consumers [Consumers]
     Rank[Ranking_service]
@@ -86,44 +91,46 @@ flowchart LR
   end
   Bot --> EX
   EX -->|"interaction.*"| Q1
-  EX -->|"match.created"| Q2
   Q1 --> Rank
+  Rank --> EX
+  EX -->|"match.created"| Q2
+  EX -->|"like.received"| Q3
   Q2 --> BotC
+  Q3 --> BotC
   Q1 -.->|failed| DLQ1
   Q2 -.->|failed| DLQ2
+  Q3 -.->|failed| DLQ3
 ```
 
-## Логика определения мэтча
+## Логика определения мэтча и уведомлений
 
 Определение мэтча происходит в consumer'е Ranking service. При обработке события `interaction.liked`:
 
 1. Проверяется наличие взаимного лайка: `SELECT 1 FROM interactions WHERE actor_user_id = target AND target_user_id = actor AND action_type = 'like'`.
-2. Если да → вставка в таблицу `matches` (каноничный порядок: `user_a_id = LEAST(a, b)`, `user_b_id = GREATEST(a, b)`).
-3. Публикация события `match.created` в RabbitMQ → consumer `match.notify` в Bot service подхватывает его и отправляет Telegram-уведомления обоим пользователям.
+2. **Нет взаимного лайка** → публикация `like.received` (`{target_user_id}`) → Bot service получает уведомление и отправляет тому пользователю «💛 Кто-то лайкнул твою анкету!» без раскрытия личности.
+3. **Есть взаимный лайк** → вставка в таблицу `matches` (каноничный порядок: `user_a_id = LEAST(a, b)`, `user_b_id = GREATEST(a, b)`) → публикация `match.created` → Bot service отправляет каждому из двух пользователей персональное сообщение с именем, возрастом, городом и ID анкеты их мэтча.
 
 ## Discovery и Redis prefetch
 
-Bot service делает `LPOP` следующего candidate ID из per-viewer Redis **list**; если список пуст или содержит ≤ 2 записи, Ranking service получает триггер (через asynq task или синхронный fallback через Profile service) для вычисления и `RPUSH` следующих ~10 candidate ID.
+Bot service делает `LPOP` следующего candidate ID из per-viewer Redis **list**. Если список пуст — Bot service сразу вызывает `POST /internal/queue/refill` у Ranking service (синхронный HTTP), который запускает `TopCandidates` и `RPUSH` до 10 candidate ID, после чего Bot делает повторный `LPOP`.
 
 ```mermaid
 sequenceDiagram
   participant U as Пользователь
   participant Bot as Bot_service
   participant R as Redis
-  participant Prof as Profile_service
   participant Rank as Ranking_service
-  U->>Bot: свайп / открытие сессии
+  participant Prof as Profile_service
+  U->>Bot: /browse
   Bot->>R: LPOP discovery:queue:{user_id}
-  alt очередь пуста или мало записей
-    Bot->>Prof: GET /api/v1/discovery/{user_id}/next
-    Prof->>Rank: trigger refill (asynq task)
-    Rank->>R: RPUSH ~10 candidate ID
-    Rank-->>Prof: первый candidate ID
-    Prof-->>Bot: JSON profile payload
-  else в очереди есть записи
-    Bot->>Prof: GET /api/v1/profiles/{candidate_id}
-    Prof-->>Bot: JSON profile payload
+  alt очередь пуста
+    Bot->>Rank: POST /internal/queue/refill {user_id}
+    Rank->>R: DEL + RPUSH top-10 candidate IDs
+    Rank-->>Bot: 204 No Content
+    Bot->>R: LPOP discovery:queue:{user_id}
   end
+  Bot->>Prof: GET /api/v1/profiles/{candidate_id}
+  Prof-->>Bot: JSON profile payload
   Bot-->>U: показ карточки профиля
 ```
 
@@ -150,13 +157,14 @@ Discovery queue = следующие карточки к показу. Session =
 }
 ```
 
-| Тип                   | Поля payload                                      |
-| --------------------- | ------------------------------------------------- |
-| `interaction.liked`   | `actor_user_id`, `target_user_id`, `interaction_id` |
-| `interaction.skipped` | `actor_user_id`, `target_user_id`, `interaction_id` |
-| `match.created`       | `match_id`, `user_a_id`, `user_b_id`              |
+| Тип                   | Producer        | Поля payload                                           |
+| --------------------- | --------------- | ------------------------------------------------------ |
+| `interaction.liked`   | Bot service     | `actor_user_id`, `target_user_id`                      |
+| `interaction.skipped` | Bot service     | `actor_user_id`, `target_user_id`                      |
+| `match.created`       | Ranking service | `match_id`, `user_a_id`, `user_b_id`, `matched_at`     |
+| `like.received`       | Ranking service | `target_user_id`                                       |
 
-Все ID — `bigint` (PostgreSQL serial). Timestamps в формате RFC 3339 UTC.
+Все ID — UUID string. Timestamps в формате RFC 3339 UTC.
 
 ## Фоновые задачи (asynq)
 

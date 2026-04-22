@@ -44,7 +44,6 @@ func (r *ProfileRepository) Get(ctx context.Context, userID string) (models.Prof
 	return p, nil
 }
 
-// Upsert writes the profile and recalculates completeness_score.
 func (r *ProfileRepository) Upsert(ctx context.Context, userID string, req models.UpdateProfileRequest) (models.Profile, error) {
 	hasPrefs, err := r.hasPreferences(ctx, userID)
 	if err != nil {
@@ -119,6 +118,84 @@ func (r *ProfileRepository) UpsertPreferences(ctx context.Context, userID string
 	return p, nil
 }
 
+func (r *ProfileRepository) AddPhoto(ctx context.Context, userID, s3Key, telegramFileID string) (models.ProfilePhoto, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return models.ProfilePhoto{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if _, err = tx.Exec(ctx,
+		`UPDATE profile_photos SET is_primary = FALSE WHERE profile_id = $1`, userID,
+	); err != nil {
+		return models.ProfilePhoto{}, fmt.Errorf("demote photos: %w", err)
+	}
+
+	const qInsert = `
+		INSERT INTO profile_photos (profile_id, s3_key, telegram_file_id, sort_order, is_primary)
+		VALUES ($1, $2, $3,
+		    COALESCE((SELECT MAX(sort_order)+1 FROM profile_photos WHERE profile_id = $1), 0),
+		    TRUE
+		)
+		RETURNING id, profile_id, s3_key, COALESCE(telegram_file_id,''), sort_order, is_primary, uploaded_at`
+
+	var ph models.ProfilePhoto
+	err = tx.QueryRow(ctx, qInsert, userID, s3Key, nullableString(telegramFileID)).Scan(
+		&ph.ID, &ph.ProfileID, &ph.S3Key, &ph.TelegramFileID,
+		&ph.SortOrder, &ph.IsPrimary, &ph.UploadedAt,
+	)
+	if err != nil {
+		return models.ProfilePhoto{}, fmt.Errorf("insert photo: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return models.ProfilePhoto{}, fmt.Errorf("commit tx: %w", err)
+	}
+
+	if err = r.recalculateCompleteness(ctx, userID); err != nil {
+		return ph, err
+	}
+	return ph, nil
+}
+
+func (r *ProfileRepository) GetPrimaryPhoto(ctx context.Context, userID string) (models.ProfilePhoto, error) {
+	const q = `
+		SELECT id, profile_id, s3_key, COALESCE(telegram_file_id,''),
+		       sort_order, is_primary, uploaded_at
+		FROM profile_photos
+		WHERE profile_id = $1 AND is_primary = TRUE
+		LIMIT 1`
+
+	var ph models.ProfilePhoto
+	err := r.pool.QueryRow(ctx, q, userID).Scan(
+		&ph.ID, &ph.ProfileID, &ph.S3Key, &ph.TelegramFileID,
+		&ph.SortOrder, &ph.IsPrimary, &ph.UploadedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return models.ProfilePhoto{}, nil
+	}
+	if err != nil {
+		return models.ProfilePhoto{}, fmt.Errorf("get primary photo: %w", err)
+	}
+	return ph, nil
+}
+
+func (r *ProfileRepository) recalculateCompleteness(ctx context.Context, userID string) error {
+	const q = `
+		UPDATE profiles SET
+			completeness_score = (
+				CASE WHEN name <> ''                                THEN 0.10 ELSE 0 END +
+				CASE WHEN bio IS NOT NULL AND bio <> ''             THEN 0.15 ELSE 0 END +
+				CASE WHEN jsonb_array_length(interests) > 0         THEN 0.15 ELSE 0 END +
+				CASE WHEN EXISTS(SELECT 1 FROM user_preferences WHERE user_id = $1)    THEN 0.20 ELSE 0 END +
+				CASE WHEN EXISTS(SELECT 1 FROM profile_photos  WHERE profile_id = $1)  THEN 0.25 ELSE 0 END
+			),
+			updated_at = NOW()
+		WHERE user_id = $1`
+	_, err := r.pool.Exec(ctx, q, userID)
+	return err
+}
+
 func (r *ProfileRepository) hasPreferences(ctx context.Context, userID string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
@@ -127,8 +204,13 @@ func (r *ProfileRepository) hasPreferences(ctx context.Context, userID string) (
 	return exists, err
 }
 
-// calculateCompleteness returns 0.0–1.0.
-// Photos (+0.25) and location (+0.15) components are always 0 in Stage 2.
+func nullableString(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
 func calculateCompleteness(req models.UpdateProfileRequest, hasPreferences bool) float32 {
 	var score float32
 	if strings.TrimSpace(req.Name) != "" {

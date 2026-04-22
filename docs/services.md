@@ -7,9 +7,11 @@
 - Long-polling / webhook к Telegram Bot API через `go-telegram-bot-api`.
 - Обрабатывает `/start`, wizard регистрации, показ карточек профилей (inline-кнопки like/skip).
 - Вызывает Profile service по **HTTP/JSON** для чтения/записи профилей.
-- Читает ранжированные списки кандидатов из **Redis** (`LPOP`) для минимальной задержки.
+- Вызывает Ranking service по **HTTP/JSON** (`POST /internal/queue/refill`) для мгновенного заполнения очереди кандидатов при первом `/browse`.
+- Читает ранжированные списки кандидатов из **Redis** (`LPOP`) для минимальной задержки; если очередь пуста — сразу запрашивает refill у Ranking service и делает повторный LPOP.
 - Публикует события (`interaction.liked`, `interaction.skipped`) в **RabbitMQ**.
-- Потребляет `match.created` из RabbitMQ → отправляет уведомления обоим пользователям.
+- Потребляет `match.created` из RabbitMQ → отправляет персональное уведомление с именем, возрастом, городом и ID анкеты совпавшего пользователя.
+- Потребляет `like.received` из RabbitMQ → отправляет уведомление «💛 Кто-то лайкнул твою анкету!» пользователю ещё до мэтча.
 - **Не владеет** таблицами PostgreSQL напрямую.
 
 ## Profile service (REST — chi)
@@ -35,10 +37,11 @@
 
 ## Ranking service
 
-- **Consumer**: подписан на очередь `behavior.aggregate` (routing keys `interaction.*`, `match.created`). Обновляет `user_behavior_stats` в PostgreSQL.
-- **Scorer**: трёхуровневый алгоритм ранжирования (primary → behavioral → combined). Веса настраиваются через переменные окружения. Подробности — в отдельном документе.
-- **Worker** (asynq): периодический пересчёт `user_ratings` для активных пользователей.
-- **Cache manager**: после пересчёта пушит top ~10 candidate ID в Redis-списки (TTL 15–30 мин).
+- **Consumer**: подписан на очередь `behavior.aggregate` (routing keys `interaction.*`). Обновляет `user_behavior_stats` в PostgreSQL. При обнаружении взаимного лайка создаёт запись в `matches` и публикует `match.created`. При одностороннем лайке публикует `like.received` (уведомление без раскрытия личности).
+- **Scorer**: алгоритм v1 — `score = like_ratio × ln(1 + total_interactions)`. Пишется в `user_ratings` asynq-воркером.
+- **Worker** (asynq): периодический пересчёт `user_ratings` каждую минуту (dev) / 15 мин (prod).
+- **Cache manager**: после пересчёта пушит top ~10 candidate ID в Redis-списки (TTL 30 мин).
+- **HTTP API** (порт 8081): `GET /healthz`, `POST /internal/queue/refill` — on-demand заполнение очереди кандидатов для конкретного пользователя.
 
 ## Media (MinIO)
 

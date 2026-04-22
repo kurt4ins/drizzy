@@ -33,8 +33,6 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 	return &UserRepository{pool: pool}
 }
 
-// Upsert inserts or updates a user by telegram_id.
-// Returns the user and whether a new row was created.
 func (r *UserRepository) Upsert(ctx context.Context, req models.CreateUserRequest) (models.User, bool, error) {
 	const query = `
 		INSERT INTO users (telegram_id, telegram_username, referral_code)
@@ -60,7 +58,7 @@ func (r *UserRepository) Upsert(ctx context.Context, req models.CreateUserReques
 
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "users_referral_code_key" {
-			continue // retry with new code
+			continue
 		}
 		return models.User{}, false, fmt.Errorf("upsert user: %w", err)
 	}

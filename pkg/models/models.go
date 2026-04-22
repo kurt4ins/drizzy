@@ -2,8 +2,6 @@ package models
 
 import "time"
 
-// ---------- domain entities ----------
-
 type User struct {
 	ID               string    `json:"id"`
 	TelegramID       int64     `json:"telegram_id"`
@@ -36,8 +34,6 @@ type Preferences struct {
 	PrefRadiusKM *int     `json:"pref_radius_km,omitempty"`
 }
 
-// ---------- request / response DTOs ----------
-
 type CreateUserRequest struct {
 	TelegramID       int64  `json:"telegram_id"`
 	TelegramUsername string `json:"telegram_username,omitempty"`
@@ -45,7 +41,7 @@ type CreateUserRequest struct {
 
 type CreateUserResponse struct {
 	User    User `json:"user"`
-	Created bool `json:"created"` // false = user already existed
+	Created bool `json:"created"`
 }
 
 type UpdateProfileRequest struct {
@@ -66,4 +62,52 @@ type UpdatePreferencesRequest struct {
 
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+type ProfilePhoto struct {
+	ID             string    `json:"id"`
+	ProfileID      string    `json:"profile_id"`
+	S3Key          string    `json:"s3_key"`
+	TelegramFileID string    `json:"telegram_file_id,omitempty"`
+	SortOrder      int       `json:"sort_order"`
+	IsPrimary      bool      `json:"is_primary"`
+	UploadedAt     time.Time `json:"uploaded_at"`
+}
+
+type UploadPhotoResponse struct {
+	Photo          ProfilePhoto `json:"photo"`
+	TelegramFileID string       `json:"telegram_file_id,omitempty"`
+}
+
+type Interaction struct {
+	ID           string    `json:"id"`
+	ActorUserID  string    `json:"actor_user_id"`
+	TargetUserID string    `json:"target_user_id"`
+	ActionType   string    `json:"action_type"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type Match struct {
+	ID                    string     `json:"id"`
+	UserAID               string     `json:"user_a_id"`
+	UserBID               string     `json:"user_b_id"`
+	MatchedAt             time.Time  `json:"matched_at"`
+	ConversationStarted   bool       `json:"conversation_started"`
+	ConversationStartedAt *time.Time `json:"conversation_started_at,omitempty"`
+}
+
+type BehaviorStats struct {
+	UserID               string    `json:"user_id"`
+	LikesReceived        int       `json:"likes_received"`
+	SkipsReceived        int       `json:"skips_received"`
+	MatchesCount         int       `json:"matches_count"`
+	ConversationsStarted int       `json:"conversations_started"`
+	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+type UserRating struct {
+	UserID           string    `json:"user_id"`
+	Score            float64   `json:"score"`
+	AlgorithmVersion string    `json:"algorithm_version"`
+	RecalculatedAt   time.Time `json:"recalculated_at"`
 }

@@ -35,7 +35,6 @@ func (h *PrefsHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Invalidate the discovery queue for this user on preference change.
 	h.rdb.Del(r.Context(), fmt.Sprintf("discovery:queue:%s", userID))
 
 	writeJSON(w, http.StatusOK, prefs)
