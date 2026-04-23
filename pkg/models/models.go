@@ -96,6 +96,13 @@ type Match struct {
 	ConversationStartedAt *time.Time `json:"conversation_started_at,omitempty"`
 }
 
+// UserMatchEntry is a match row from the viewer's perspective (partner user id only).
+type UserMatchEntry struct {
+	MatchID     string    `json:"match_id"`
+	OtherUserID string    `json:"other_user_id"`
+	MatchedAt   time.Time `json:"matched_at"`
+}
+
 type BehaviorStats struct {
 	UserID               string    `json:"user_id"`
 	LikesReceived        int       `json:"likes_received"`

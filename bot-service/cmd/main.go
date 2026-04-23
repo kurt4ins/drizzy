@@ -11,6 +11,7 @@ import (
 	"github.com/kurt4ins/drizzy/bot-service/internal/client"
 	"github.com/kurt4ins/drizzy/bot-service/internal/discovery"
 	"github.com/kurt4ins/drizzy/bot-service/internal/handler"
+	"github.com/kurt4ins/drizzy/bot-service/internal/keyboard"
 	"github.com/kurt4ins/drizzy/bot-service/internal/session"
 	"github.com/kurt4ins/drizzy/bot-service/internal/userstore"
 	"github.com/kurt4ins/drizzy/pkg/config"
@@ -65,10 +66,12 @@ func main() {
 	defer likeConsumer.Close()
 
 	startHandler := handler.NewStartHandler(bot, ss, pc, us)
-	browseHandler := handler.NewBrowseHandler(bot, pc, rc, dq, us, pub)
+	browseHandler := handler.NewBrowseHandler(bot, pc, rc, dq, us, ss, pub)
 	myProfileHandler := handler.NewMyProfileHandler(bot, pc, ss, us)
+	matchesHandler := handler.NewMatchesHandler(bot, pc, rc, us, ss)
 
 	startHandler.SetMyProfileHandler(myProfileHandler)
+	myProfileHandler.SetStartHandler(startHandler)
 
 	registerCommands(bot)
 
@@ -97,7 +100,7 @@ func main() {
 			log.Println("bot-service shutting down")
 			return
 		case update := <-updates:
-			go dispatch(ctx, update, startHandler, browseHandler, myProfileHandler)
+			go dispatch(ctx, update, startHandler, browseHandler, myProfileHandler, matchesHandler, ss)
 		}
 	}
 }
@@ -108,6 +111,8 @@ func dispatch(
 	start *handler.StartHandler,
 	browse *handler.BrowseHandler,
 	myprofile *handler.MyProfileHandler,
+	matches *handler.MatchesHandler,
+	ss *session.Store,
 ) {
 	switch {
 	case update.Message != nil && update.Message.IsCommand():
@@ -118,26 +123,56 @@ func dispatch(
 			browse.HandleBrowseCommand(ctx, update.Message)
 		case "profile":
 			myprofile.HandleMyProfile(ctx, update.Message)
+		case "matches":
+			matches.HandleMatches(ctx, update.Message)
 		default:
 			start.HandleTextInput(ctx, update.Message)
-		}
-
-	case update.CallbackQuery != nil:
-		data := update.CallbackQuery.Data
-		switch {
-		case strings.HasPrefix(data, "like:") || strings.HasPrefix(data, "skip:"):
-			browse.HandleInteractionCallback(ctx, update.CallbackQuery)
-		case strings.HasPrefix(data, "edit:"):
-			myprofile.HandleEditCallback(ctx, update.CallbackQuery)
-		default:
-			start.HandleCallback(ctx, update.CallbackQuery)
 		}
 
 	case update.Message != nil && len(update.Message.Photo) > 0:
 		start.HandlePhoto(ctx, update.Message)
 
 	case update.Message != nil:
+		if handleMainMenuReply(ctx, update.Message, browse, myprofile, matches, ss) {
+			return
+		}
+		if browse.HandleBrowseVote(ctx, update.Message) {
+			return
+		}
+		if browse.HandleBrowseBack(ctx, update.Message) {
+			return
+		}
+		if myprofile.HandleProfileScreenReply(ctx, update.Message) {
+			return
+		}
 		start.HandleTextInput(ctx, update.Message)
+	}
+}
+
+func handleMainMenuReply(
+	ctx context.Context,
+	msg *tgbotapi.Message,
+	browse *handler.BrowseHandler,
+	myprofile *handler.MyProfileHandler,
+	matches *handler.MatchesHandler,
+	ss *session.Store,
+) bool {
+	data, err := ss.GetAll(ctx, msg.From.ID)
+	if err == nil && data["step"] != "" {
+		return false
+	}
+	switch strings.TrimSpace(msg.Text) {
+	case keyboard.BtnBrowse:
+		browse.HandleBrowseCommand(ctx, msg)
+		return true
+	case keyboard.BtnProfile:
+		myprofile.HandleMyProfile(ctx, msg)
+		return true
+	case keyboard.BtnMatches:
+		matches.HandleMatches(ctx, msg)
+		return true
+	default:
+		return false
 	}
 }
 
@@ -146,6 +181,7 @@ func registerCommands(bot *tgbotapi.BotAPI) {
 		tgbotapi.BotCommand{Command: "start", Description: "Регистрация / перезапуск"},
 		tgbotapi.BotCommand{Command: "browse", Description: "Смотреть анкеты"},
 		tgbotapi.BotCommand{Command: "profile", Description: "Мой профиль и редактирование"},
+		tgbotapi.BotCommand{Command: "matches", Description: "Список мэтчей"},
 	)
 	if _, err := bot.Request(commands); err != nil {
 		log.Printf("set commands: %v", err)

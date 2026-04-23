@@ -11,6 +11,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/kurt4ins/drizzy/bot-service/internal/client"
+	"github.com/kurt4ins/drizzy/bot-service/internal/keyboard"
 	"github.com/kurt4ins/drizzy/bot-service/internal/session"
 	"github.com/kurt4ins/drizzy/bot-service/internal/userstore"
 	"github.com/kurt4ins/drizzy/pkg/models"
@@ -26,6 +27,8 @@ const (
 	stepAskPrefGender = "ask_pref_gender"
 	stepAskPrefAge    = "ask_pref_age"
 	stepAskPhoto      = "ask_photo"
+
+	sessionKeyProfileRefill = "profile_refill"
 )
 
 type StartHandler struct {
@@ -44,13 +47,38 @@ func (h *StartHandler) SetMyProfileHandler(mph *MyProfileHandler) {
 	h.myProfile = mph
 }
 
+// BeginProfileRefill запускает заново тот же сценарий, что и регистрация, для уже существующего пользователя.
+func (h *StartHandler) BeginProfileRefill(ctx context.Context, msg *tgbotapi.Message) {
+	userID, err := h.userStore.GetUserID(ctx, msg.From.ID)
+	if err != nil || userID == "" {
+		h.send(msg.Chat.ID, "Сначала зарегистрируйся — отправь /start.")
+		return
+	}
+	_ = h.session.Del(ctx, msg.From.ID)
+	_ = h.session.SetField(ctx, msg.From.ID, sessionKeyProfileRefill, "1")
+	_ = h.session.SetField(ctx, msg.From.ID, "user_id", userID)
+	if err = h.session.SetField(ctx, msg.From.ID, "step", stepAskName); err != nil {
+		log.Printf("session set: %v", err)
+		return
+	}
+	m := tgbotapi.NewMessage(msg.Chat.ID, "Обновим анкету — пройди шаги как при регистрации.\n\nКак тебя зовут?")
+	m.ReplyMarkup = keyboard.Remove()
+	if _, err := h.bot.Send(m); err != nil {
+		log.Printf("send message: %v", err)
+	}
+}
+
 func (h *StartHandler) HandleStart(ctx context.Context, msg *tgbotapi.Message) {
 	_ = h.session.Del(ctx, msg.From.ID)
 	if err := h.session.SetField(ctx, msg.From.ID, "step", stepAskName); err != nil {
 		log.Printf("session set: %v", err)
 		return
 	}
-	h.send(msg.Chat.ID, "Привет! Давай создадим твой профиль.\n\nКак тебя зовут?")
+	m := tgbotapi.NewMessage(msg.Chat.ID, "Привет! Давай создадим твой профиль.\n\nКак тебя зовут?")
+	m.ReplyMarkup = keyboard.Remove()
+	if _, err := h.bot.Send(m); err != nil {
+		log.Printf("send message: %v", err)
+	}
 }
 
 func (h *StartHandler) HandleTextInput(ctx context.Context, msg *tgbotapi.Message) {
@@ -62,7 +90,8 @@ func (h *StartHandler) HandleTextInput(ctx context.Context, msg *tgbotapi.Messag
 
 	step := data["step"]
 	if step == "" {
-		h.send(msg.Chat.ID, "Отправь /start для регистрации или /browse для просмотра анкет.")
+		h.send(msg.Chat.ID,
+			"Используй кнопки снизу или команды /browse, /profile, /matches и /start.")
 		return
 	}
 
@@ -71,7 +100,7 @@ func (h *StartHandler) HandleTextInput(ctx context.Context, msg *tgbotapi.Messag
 	switch step {
 	case stepAskName:
 		if len(text) < 2 {
-			h.send(msg.Chat.ID, "Имя должно содержать хотя бы 2 символа. Попробуй ещё раз:")
+			h.sendRemoveReplyKeyboard(msg.Chat.ID, "Имя должно содержать хотя бы 2 символа. Попробуй ещё раз:")
 			return
 		}
 		h.advance(ctx, msg.From.ID, msg.Chat.ID, "name", text, stepAskAge, "Сколько тебе лет?")
@@ -79,7 +108,7 @@ func (h *StartHandler) HandleTextInput(ctx context.Context, msg *tgbotapi.Messag
 	case stepAskAge:
 		age, err := strconv.Atoi(text)
 		if err != nil || age < 1 || age > 100 {
-			h.send(msg.Chat.ID, "Введи корректный возраст (от 1 до 100):")
+			h.sendRemoveReplyKeyboard(msg.Chat.ID, "Введи корректный возраст (от 1 до 100):")
 			return
 		}
 		_ = h.session.SetField(ctx, msg.From.ID, "age", text)
@@ -87,22 +116,43 @@ func (h *StartHandler) HandleTextInput(ctx context.Context, msg *tgbotapi.Messag
 			log.Printf("session set: %v", err)
 			return
 		}
-		h.sendGenderKeyboard(msg.Chat.ID)
+		h.sendWithReplyKeyboard(msg.Chat.ID, "Кто ты? Нажми вариант ниже 👇", keyboard.GenderSelf())
 
 	case stepAskGender:
-		h.sendGenderKeyboard(msg.Chat.ID)
+		var gender string
+		switch text {
+		case keyboard.BtnGenderMale:
+			gender = "male"
+		case keyboard.BtnGenderFemale:
+			gender = "female"
+		default:
+			h.sendWithReplyKeyboard(msg.Chat.ID, "Выбери, кто ты, кнопкой ниже 👇", keyboard.GenderSelf())
+			return
+		}
+		_ = h.session.SetField(ctx, msg.From.ID, "gender", gender)
+		if err = h.session.SetField(ctx, msg.From.ID, "step", stepAskCity); err != nil {
+			log.Printf("session set: %v", err)
+			return
+		}
+		h.sendRemoveReplyKeyboard(msg.Chat.ID, "В каком городе ты живёшь?")
 
 	case stepAskCity:
 		if len(text) < 2 {
-			h.send(msg.Chat.ID, "Укажи город (минимум 2 символа):")
+			h.sendRemoveReplyKeyboard(msg.Chat.ID, "Укажи город (минимум 2 символа):")
 			return
 		}
-		h.advance(ctx, msg.From.ID, msg.Chat.ID, "city", text, stepAskBio,
-			"Расскажи немного о себе (или /skip):")
+		_ = h.session.SetField(ctx, msg.From.ID, "city", text)
+		if err = h.session.SetField(ctx, msg.From.ID, "step", stepAskBio); err != nil {
+			log.Printf("session set: %v", err)
+			return
+		}
+		h.sendWithReplyKeyboard(msg.Chat.ID,
+			"Расскажи немного о себе. Можно нажать «Пропустить», если не хочешь заполнять.",
+			keyboard.SkipOnly())
 
 	case stepAskBio:
 		bio := ""
-		if text != "/skip" {
+		if text != "/skip" && text != keyboard.BtnSkip {
 			bio = text
 		}
 		_ = h.session.SetField(ctx, msg.From.ID, "bio", bio)
@@ -110,62 +160,89 @@ func (h *StartHandler) HandleTextInput(ctx context.Context, msg *tgbotapi.Messag
 			log.Printf("session set: %v", err)
 			return
 		}
-		h.send(msg.Chat.ID, "Какие у тебя интересы? Например: путешествия, музыка, спорт\n(или /skip)")
+		h.sendWithReplyKeyboard(msg.Chat.ID,
+			"Какие у тебя интересы? Например: путешествия, музыка, спорт\n"+
+				"Или нажми «Пропустить», если не хочешь указывать.",
+			keyboard.SkipOnly())
 
 	case stepAskInterests:
 		interests := ""
-		if text != "/skip" {
+		if text != "/skip" && text != keyboard.BtnSkip {
 			interests = text
 		}
 		_ = h.session.SetField(ctx, msg.From.ID, "interests", interests)
 
 		data["interests"] = interests
-		userID, ok := h.saveProfileData(ctx, msg.From.ID, msg.From.UserName, msg.Chat.ID, data)
-		if !ok {
-			return
+		if data[sessionKeyProfileRefill] == "1" {
+			userID := data["user_id"]
+			if userID == "" {
+				h.send(msg.Chat.ID, "Что-то пошло не так. Попробуй /start.")
+				return
+			}
+			age, _ := strconv.Atoi(data["age"])
+			req := models.UpdateProfileRequest{
+				Name:      data["name"],
+				Age:       age,
+				Gender:    data["gender"],
+				City:      data["city"],
+				Bio:       data["bio"],
+				Interests: parseInterests(data["interests"]),
+			}
+			if _, err := h.profile.UpdateProfile(ctx, userID, req); err != nil {
+				log.Printf("update profile (refill): %v", err)
+				h.send(msg.Chat.ID, "Не удалось сохранить профиль. Попробуй позже.")
+				return
+			}
+		} else {
+			userID, ok := h.saveProfileData(ctx, msg.From.ID, msg.From.UserName, msg.Chat.ID, data)
+			if !ok {
+				return
+			}
+			_ = h.session.SetField(ctx, msg.From.ID, "user_id", userID)
 		}
-		_ = h.session.SetField(ctx, msg.From.ID, "user_id", userID)
 		if err = h.session.SetField(ctx, msg.From.ID, "step", stepAskPrefGender); err != nil {
 			log.Printf("session set: %v", err)
 			return
 		}
-		h.sendPrefGenderKeyboard(msg.Chat.ID)
+		h.sendWithReplyKeyboard(msg.Chat.ID, "Кого ты ищешь? Нажми вариант ниже 👇", keyboard.PrefGender())
 
 	case stepAskPrefGender:
-		h.sendPrefGenderKeyboard(msg.Chat.ID)
+		var pref string
+		switch text {
+		case keyboard.BtnPrefMale:
+			pref = "male"
+		case keyboard.BtnPrefFemale:
+			pref = "female"
+		case keyboard.BtnPrefAny:
+			pref = "any"
+		default:
+			h.sendWithReplyKeyboard(msg.Chat.ID, "Выбери, кого ищешь, кнопкой ниже 👇", keyboard.PrefGender())
+			return
+		}
+		_ = h.session.SetField(ctx, msg.From.ID, "pref_gender", pref)
+		if err = h.session.SetField(ctx, msg.From.ID, "step", stepAskPrefAge); err != nil {
+			log.Printf("session set: %v", err)
+			return
+		}
+		h.sendWithReplyKeyboard(msg.Chat.ID,
+			"Какой возраст тебя интересует?\nВведи диапазон, например *18-30*, или нажми «Пропустить».",
+			keyboard.SkipOnly())
 
 	case stepAskPrefAge:
 		h.handlePrefAge(ctx, msg.From.ID, msg.Chat.ID, text)
 
 	case stepAskPhoto:
-		h.send(msg.Chat.ID, "Пожалуйста, отправь фото (не файл, а именно фотографию), или /skip чтобы пропустить:")
-		if text == "/skip" {
-			h.finishRegistration(ctx, msg.From.ID, msg.Chat.ID, data["name"])
-		}
-
-	case StepEditName:
-		if len(text) < 2 {
-			h.send(msg.Chat.ID, "Имя должно содержать хотя бы 2 символа:")
+		if text == "/skip" || text == keyboard.BtnSkip {
+			if data[sessionKeyProfileRefill] == "1" {
+				h.finishProfileRefill(ctx, msg.From.ID, msg.Chat.ID, data["name"])
+			} else {
+				h.finishRegistration(ctx, msg.From.ID, msg.Chat.ID, data["name"])
+			}
 			return
 		}
-		h.applyProfileEdit(ctx, msg.From.ID, msg.Chat.ID, func(p *models.UpdateProfileRequest) { p.Name = text })
-
-	case StepEditBio:
-		bio := text
-		if bio == "/skip" {
-			bio = ""
-		}
-		h.applyProfileEdit(ctx, msg.From.ID, msg.Chat.ID, func(p *models.UpdateProfileRequest) { p.Bio = bio })
-
-	case StepEditInterests:
-		var interests []string
-		if text != "/skip" {
-			interests = parseInterests(text)
-		}
-		h.applyProfileEdit(ctx, msg.From.ID, msg.Chat.ID, func(p *models.UpdateProfileRequest) { p.Interests = interests })
-
-	case StepEditPhoto:
-		h.send(msg.Chat.ID, "Отправь фото, а не текст:")
+		h.sendWithReplyKeyboard(msg.Chat.ID,
+			"Пожалуйста, отправь фото (не файл, а именно фотографию), или нажми «Пропустить».",
+			keyboard.SkipOnly())
 	}
 }
 
@@ -189,21 +266,13 @@ func (h *StartHandler) HandlePhoto(ctx context.Context, msg *tgbotapi.Message) {
 			h.send(msg.Chat.ID, "Что-то пошло не так. Попробуй /start.")
 			return
 		}
-		h.uploadPhotoAndContinue(ctx, msg.From.ID, msg.Chat.ID, userID, best, func() {
-			h.finishRegistration(ctx, msg.From.ID, msg.Chat.ID, data["name"])
-		})
-
-	case StepEditPhoto:
-		userID, _ := h.userStore.GetUserID(ctx, msg.From.ID)
-		if userID == "" {
-			h.send(msg.Chat.ID, "Что-то пошло не так. Попробуй /start.")
-			return
-		}
-		h.uploadPhotoAndContinue(ctx, msg.From.ID, msg.Chat.ID, userID, best, func() {
-			_ = h.session.SetField(ctx, msg.From.ID, "step", "")
-			h.send(msg.Chat.ID, "Фото обновлено! ✅")
-			if h.myProfile != nil {
-				h.myProfile.ShowProfileAfterEdit(ctx, msg.Chat.ID, userID)
+		refill := data[sessionKeyProfileRefill] == "1"
+		name := data["name"]
+		h.uploadPhotoAndContinue(ctx, msg.From.ID, msg.Chat.ID, userID, best, true, func() {
+			if refill {
+				h.finishProfileRefill(ctx, msg.From.ID, msg.Chat.ID, name)
+			} else {
+				h.finishRegistration(ctx, msg.From.ID, msg.Chat.ID, name)
 			}
 		})
 	}
@@ -214,60 +283,29 @@ func (h *StartHandler) uploadPhotoAndContinue(
 	telegramID int64, chatID int64,
 	userID string,
 	photo tgbotapi.PhotoSize,
+	reattachSkipOnError bool,
 	onSuccess func(),
 ) {
 	fileBytes, err := h.downloadTelegramFile(photo.FileID)
 	if err != nil {
 		log.Printf("download telegram file: %v", err)
-		h.send(chatID, "Не удалось загрузить фото. Попробуй ещё раз:")
+		h.photoUploadErrorReply(chatID, "Не удалось загрузить фото. Попробуй ещё раз:", reattachSkipOnError)
 		return
 	}
 	if _, err = h.profile.UploadPhoto(ctx, userID, photo.FileID, fileBytes); err != nil {
 		log.Printf("upload photo: %v", err)
-		h.send(chatID, "Не удалось сохранить фото. Попробуй ещё раз:")
+		h.photoUploadErrorReply(chatID, "Не удалось сохранить фото. Попробуй ещё раз:", reattachSkipOnError)
 		return
 	}
 	onSuccess()
 }
 
-func (h *StartHandler) HandleCallback(ctx context.Context, cb *tgbotapi.CallbackQuery) {
-	answer := tgbotapi.NewCallback(cb.ID, "")
-	if _, err := h.bot.Request(answer); err != nil {
-		log.Printf("answer callback: %v", err)
-	}
-
-	data, err := h.session.GetAll(ctx, cb.From.ID)
-	if err != nil {
-		log.Printf("session get: %v", err)
+func (h *StartHandler) photoUploadErrorReply(chatID int64, text string, reattachSkip bool) {
+	if reattachSkip {
+		h.sendWithReplyKeyboard(chatID, text, keyboard.SkipOnly())
 		return
 	}
-
-	switch data["step"] {
-	case stepAskGender:
-		gender := cb.Data
-		if gender != "male" && gender != "female" {
-			return
-		}
-		_ = h.session.SetField(ctx, cb.From.ID, "gender", gender)
-		if err = h.session.SetField(ctx, cb.From.ID, "step", stepAskCity); err != nil {
-			log.Printf("session set: %v", err)
-			return
-		}
-		h.send(cb.Message.Chat.ID, "В каком городе ты живёшь?")
-
-	case stepAskPrefGender:
-		if !strings.HasPrefix(cb.Data, "pref:") {
-			return
-		}
-		prefGender := strings.TrimPrefix(cb.Data, "pref:")
-		_ = h.session.SetField(ctx, cb.From.ID, "pref_gender", prefGender)
-		if err = h.session.SetField(ctx, cb.From.ID, "step", stepAskPrefAge); err != nil {
-			log.Printf("session set: %v", err)
-			return
-		}
-		h.send(cb.Message.Chat.ID,
-			"Какой возраст тебя интересует?\nВведи диапазон, например *18-30*, или /skip")
-	}
+	h.sendRemoveReplyKeyboard(chatID, text)
 }
 
 func (h *StartHandler) saveProfileData(ctx context.Context, telegramID int64, username string, chatID int64, data map[string]string) (string, bool) {
@@ -302,16 +340,20 @@ func (h *StartHandler) handlePrefAge(ctx context.Context, telegramID int64, chat
 	data, _ := h.session.GetAll(ctx, telegramID)
 	userID := data["user_id"]
 
-	if text != "/skip" {
+	if text != "/skip" && text != keyboard.BtnSkip {
 		parts := strings.SplitN(text, "-", 2)
 		if len(parts) != 2 {
-			h.send(chatID, "Введи диапазон через дефис, например *20-30*, или /skip:")
+			h.sendWithReplyKeyboard(chatID,
+				"Введи диапазон через дефис, например *20-30*, или нажми «Пропустить».",
+				keyboard.SkipOnly())
 			return
 		}
 		minAge, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
 		maxAge, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
 		if err1 != nil || err2 != nil || minAge < 1 || maxAge > 100 || minAge > maxAge {
-			h.send(chatID, "Некорректный диапазон. Например: *20-30*. Попробуй ещё раз или /skip:")
+			h.sendWithReplyKeyboard(chatID,
+				"Некорректный диапазон. Например: *20-30*. Попробуй ещё раз или «Пропустить».",
+				keyboard.SkipOnly())
 			return
 		}
 		_ = h.session.SetField(ctx, telegramID, "pref_age_min", strconv.Itoa(minAge))
@@ -328,7 +370,9 @@ func (h *StartHandler) handlePrefAge(ctx context.Context, telegramID int64, chat
 		log.Printf("session set: %v", err)
 		return
 	}
-	h.send(chatID, "Отлично! Теперь добавь фото профиля.\nОтправь фотографию или /skip:")
+	h.sendWithReplyKeyboard(chatID,
+		"Отлично! Теперь добавь фото профиля.\nОтправь фотографию или нажми «Пропустить».",
+		keyboard.SkipOnly())
 }
 
 func (h *StartHandler) savePreferences(ctx context.Context, userID string, data map[string]string) {
@@ -339,6 +383,8 @@ func (h *StartHandler) savePreferences(ctx context.Context, userID string, data 
 		req.PrefGender = []string{"male"}
 	case "female":
 		req.PrefGender = []string{"female"}
+	case "any":
+		req.PrefGender = []string{}
 	}
 
 	if minStr := data["pref_age_min"]; minStr != "" {
@@ -365,46 +411,28 @@ func (h *StartHandler) finishRegistration(ctx context.Context, telegramID int64,
 		log.Printf("save user store: %v", err)
 	}
 
-	h.send(chatID, fmt.Sprintf(
-		"Готово, %s! Добро пожаловать в Drizzy 🎉\n\nТвой профиль создан. Отправь /browse чтобы смотреть анкеты.",
-		name,
-	))
+	text := fmt.Sprintf(
+		"Готово, *%s*! Добро пожаловать в Drizzy 🎉\n\n"+
+			"Твой профиль создан.\n\n"+
+			"*Кнопки снизу:*\n"+
+			"• *%s* — смотреть анкеты\n"+
+			"• *%s* — профиль и редактирование\n"+
+			"• *%s* — взаимные лайки",
+		EscapeMarkdown(name),
+		EscapeMarkdown(keyboard.BtnBrowse),
+		EscapeMarkdown(keyboard.BtnProfile),
+		EscapeMarkdown(keyboard.BtnMatches),
+	)
+	h.sendWithReplyKeyboard(chatID, text, keyboard.MainMenu())
 }
 
-func (h *StartHandler) applyProfileEdit(ctx context.Context, telegramID int64, chatID int64, mutate func(*models.UpdateProfileRequest)) {
-	userID, err := h.userStore.GetUserID(ctx, telegramID)
-	if err != nil || userID == "" {
-		h.send(chatID, "Что-то пошло не так. Попробуй /start.")
-		return
-	}
-
-	current, err := h.profile.GetProfile(ctx, userID)
-	if err != nil {
-		h.send(chatID, "Не удалось загрузить профиль. Попробуй позже.")
-		return
-	}
-
-	req := models.UpdateProfileRequest{
-		Name:      current.Name,
-		Age:       current.Age,
-		Gender:    current.Gender,
-		City:      current.City,
-		Bio:       current.Bio,
-		Interests: current.Interests,
-	}
-	mutate(&req)
-
-	if _, err = h.profile.UpdateProfile(ctx, userID, req); err != nil {
-		log.Printf("update profile: %v", err)
-		h.send(chatID, "Не удалось сохранить изменения. Попробуй позже.")
-		return
-	}
-
-	_ = h.session.SetField(ctx, telegramID, "step", "")
-	h.send(chatID, "Готово! ✅")
-	if h.myProfile != nil {
-		h.myProfile.ShowProfileAfterEdit(ctx, chatID, userID)
-	}
+func (h *StartHandler) finishProfileRefill(ctx context.Context, telegramID int64, chatID int64, name string) {
+	_ = h.session.Del(ctx, telegramID)
+	text := fmt.Sprintf(
+		"Готово, *%s*! Анкета обновлена.",
+		EscapeMarkdown(name),
+	)
+	h.sendWithReplyKeyboard(chatID, text, keyboard.MainMenu())
 }
 
 func (h *StartHandler) downloadTelegramFile(fileID string) ([]byte, error) {
@@ -426,7 +454,7 @@ func (h *StartHandler) advance(ctx context.Context, telegramID int64, chatID int
 		log.Printf("session set: %v", err)
 		return
 	}
-	h.send(chatID, prompt)
+	h.sendRemoveReplyKeyboard(chatID, prompt)
 }
 
 func (h *StartHandler) send(chatID int64, text string) {
@@ -437,30 +465,21 @@ func (h *StartHandler) send(chatID int64, text string) {
 	}
 }
 
-func (h *StartHandler) sendGenderKeyboard(chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "Кто ты?")
-	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Парень", "male"),
-			tgbotapi.NewInlineKeyboardButtonData("Девушка", "female"),
-		),
-	)
+func (h *StartHandler) sendWithReplyKeyboard(chatID int64, text string, markup tgbotapi.ReplyKeyboardMarkup) {
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = tgbotapi.ModeMarkdown
+	msg.ReplyMarkup = markup
 	if _, err := h.bot.Send(msg); err != nil {
-		log.Printf("send gender keyboard: %v", err)
+		log.Printf("send message: %v", err)
 	}
 }
 
-func (h *StartHandler) sendPrefGenderKeyboard(chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "Кого ты ищешь?")
-	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Парней", "pref:male"),
-			tgbotapi.NewInlineKeyboardButtonData("Девушек", "pref:female"),
-			tgbotapi.NewInlineKeyboardButtonData("Всех", "pref:any"),
-		),
-	)
+func (h *StartHandler) sendRemoveReplyKeyboard(chatID int64, text string) {
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = tgbotapi.ModeMarkdown
+	msg.ReplyMarkup = keyboard.Remove()
 	if _, err := h.bot.Send(msg); err != nil {
-		log.Printf("send pref gender keyboard: %v", err)
+		log.Printf("send message: %v", err)
 	}
 }
 

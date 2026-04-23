@@ -154,6 +154,9 @@ func (r *Repository) TopCandidates(ctx context.Context, viewerID string, limit i
 		SELECT p.user_id
 		FROM profiles p
 		LEFT JOIN user_ratings ur ON ur.user_id = p.user_id
+		LEFT JOIN LATERAL (
+			SELECT city AS viewer_city FROM profiles WHERE user_id = $1 LIMIT 1
+		) v ON TRUE
 		WHERE p.user_id <> $1
 		  AND p.user_id NOT IN (
 		      SELECT target_user_id FROM interactions WHERE actor_user_id = $1
@@ -167,7 +170,17 @@ func (r *Repository) TopCandidates(ctx context.Context, viewerID string, limit i
 		      COALESCE((SELECT pref_age_min FROM user_preferences WHERE user_id = $1), p.age)
 		      AND
 		      COALESCE((SELECT pref_age_max FROM user_preferences WHERE user_id = $1), p.age)
-		ORDER BY COALESCE(ur.score, 0) DESC
+		ORDER BY
+		  COALESCE(ur.score, 0)
+		  + COALESCE(p.completeness_score, 0)
+		  + CASE
+		      WHEN NULLIF(TRIM(BOTH FROM v.viewer_city), '') IS NOT NULL
+		       AND NULLIF(TRIM(BOTH FROM p.city), '') IS NOT NULL
+		       AND LOWER(TRIM(BOTH FROM p.city)) = LOWER(TRIM(BOTH FROM v.viewer_city))
+		      THEN 2.0
+		      ELSE 0
+		    END
+		  DESC
 		LIMIT $2`
 
 	rows, err := r.pool.Query(ctx, q, viewerID, limit)
@@ -185,6 +198,32 @@ func (r *Repository) TopCandidates(ctx context.Context, viewerID string, limit i
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+func (r *Repository) ListMatchesForUser(ctx context.Context, userID string) ([]models.UserMatchEntry, error) {
+	const q = `
+		SELECT id,
+		       CASE WHEN user_a_id = $1 THEN user_b_id ELSE user_a_id END,
+		       matched_at
+		FROM matches
+		WHERE user_a_id = $1 OR user_b_id = $1
+		ORDER BY matched_at DESC`
+
+	rows, err := r.pool.Query(ctx, q, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list matches for %s: %w", userID, err)
+	}
+	defer rows.Close()
+
+	var out []models.UserMatchEntry
+	for rows.Next() {
+		var e models.UserMatchEntry
+		if err := rows.Scan(&e.MatchID, &e.OtherUserID, &e.MatchedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }
 
 func (r *Repository) UserBehaviorStats(ctx context.Context, userID string) (models.BehaviorStats, error) {

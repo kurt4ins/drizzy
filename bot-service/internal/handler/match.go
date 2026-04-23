@@ -67,7 +67,7 @@ func (mc *MatchConsumer) handle(ctx context.Context, body []byte) error {
 		if err != nil {
 			log.Printf("match consumer: get profile %s: %v", otherUID, err)
 			msg := tgbotapi.NewMessage(myUser.TelegramID,
-				"🎉 У тебя новый мэтч! Кто-то тоже лайкнул тебя. Напиши им первым!")
+				"💛 У тебя новый мэтч! Кто-то тоже лайкнул тебя. Напиши им первым!")
 			if _, sendErr := mc.bot.Send(msg); sendErr != nil {
 				log.Printf("match consumer: send to %d: %v", myUser.TelegramID, sendErr)
 			}
@@ -88,10 +88,10 @@ func (mc *MatchConsumer) handle(ctx context.Context, body []byte) error {
 		}
 
 		text := fmt.Sprintf(
-			"🎉 Мэтч! *%s*, %d лет, %s тоже лайкнул(а) тебя!%s",
-			escapeMarkdown(otherProfile.Name),
+			"💛 Мэтч!\n*%s*, %d лет, %s тоже лайкнул(а) тебя!%s",
+			EscapeMarkdown(otherProfile.Name),
 			otherProfile.Age,
-			escapeMarkdown(otherProfile.City),
+			EscapeMarkdown(otherProfile.City),
 			contact,
 		)
 		msg := tgbotapi.NewMessage(myUser.TelegramID, text)

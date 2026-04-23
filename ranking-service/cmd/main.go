@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/hibiken/asynq"
@@ -14,6 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/kurt4ins/drizzy/pkg/config"
+	"github.com/kurt4ins/drizzy/pkg/models"
 	"github.com/kurt4ins/drizzy/pkg/rabbitmq"
 	"github.com/kurt4ins/drizzy/ranking-service/internal/consumer"
 	"github.com/kurt4ins/drizzy/ranking-service/internal/repository"
@@ -101,6 +103,31 @@ func main() {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
+		})
+		muxHTTP.HandleFunc("/api/v1/users/", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			rest := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/v1/users/"), "/")
+			parts := strings.Split(rest, "/")
+			if len(parts) != 2 || parts[1] != "matches" || parts[0] == "" {
+				http.NotFound(w, r)
+				return
+			}
+			list, err := repo.ListMatchesForUser(r.Context(), parts[0])
+			if err != nil {
+				log.Printf("list matches for %s: %v", parts[0], err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+			if list == nil {
+				list = []models.UserMatchEntry{}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(list); err != nil {
+				log.Printf("encode matches: %v", err)
+			}
 		})
 		log.Printf("ranking-service HTTP on :%s", port)
 		if err := http.ListenAndServe(":"+port, muxHTTP); err != nil {

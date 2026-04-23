@@ -51,7 +51,11 @@ func (r *ProfileRepository) Upsert(ctx context.Context, userID string, req model
 	}
 	score := calculateCompleteness(req, hasPrefs)
 
-	interestsJSON, err := json.Marshal(req.Interests)
+	interestsForJSON := req.Interests
+	if interestsForJSON == nil {
+		interestsForJSON = []string{}
+	}
+	interestsJSON, err := json.Marshal(interestsForJSON)
 	if err != nil {
 		return models.Profile{}, fmt.Errorf("marshal interests: %w", err)
 	}
@@ -186,7 +190,12 @@ func (r *ProfileRepository) recalculateCompleteness(ctx context.Context, userID 
 			completeness_score = (
 				CASE WHEN name <> ''                                THEN 0.10 ELSE 0 END +
 				CASE WHEN bio IS NOT NULL AND bio <> ''             THEN 0.15 ELSE 0 END +
-				CASE WHEN jsonb_array_length(interests) > 0         THEN 0.15 ELSE 0 END +
+				CASE
+					WHEN interests IS NULL THEN 0
+					WHEN jsonb_typeof(interests) <> 'array' THEN 0
+					WHEN jsonb_array_length(interests) > 0 THEN 0.15
+					ELSE 0
+				END +
 				CASE WHEN EXISTS(SELECT 1 FROM user_preferences WHERE user_id = $1)    THEN 0.20 ELSE 0 END +
 				CASE WHEN EXISTS(SELECT 1 FROM profile_photos  WHERE profile_id = $1)  THEN 0.25 ELSE 0 END
 			),
