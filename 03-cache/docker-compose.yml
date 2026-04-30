@@ -1,10 +1,7 @@
 services:
   postgres:
     image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: cache
-      POSTGRES_PASSWORD: cache
-      POSTGRES_DB: cache
+    env_file: .env
     ports:
       - "5432:5432"
     healthcheck:
