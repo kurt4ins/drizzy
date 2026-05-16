@@ -2,14 +2,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kurt4ins/drizzy/pkg/config"
+	"github.com/kurt4ins/drizzy/pkg/metrics"
 	"github.com/kurt4ins/drizzy/profile-service/internal/handler"
 	"github.com/kurt4ins/drizzy/profile-service/internal/repository"
 	"github.com/kurt4ins/drizzy/profile-service/internal/storage"
@@ -17,7 +22,8 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	postgresDSN := config.Get("POSTGRES_DSN")
 	redisAddr := config.Get("REDIS_ADDR")
@@ -56,7 +62,7 @@ func main() {
 	userRepo := repository.NewUserRepository(pool)
 	profileRepo := repository.NewProfileRepository(pool)
 
-	uh := handler.NewUserHandler(userRepo)
+	uh := handler.NewUserHandler(userRepo, profileRepo)
 	ph := handler.NewProfileHandler(profileRepo)
 	prh := handler.NewPrefsHandler(profileRepo, rdb)
 	photoh := handler.NewPhotoHandler(profileRepo, minioStore)
@@ -66,11 +72,15 @@ func main() {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.RealIP)
+	r.Use(metrics.Middleware("profile-service"))
 
-	r.Get("/healthz", handler.HealthHandler)
+	hc := handler.NewHealthChecker(pool, rdb, minioStore)
+	r.Get("/healthz", hc.Handle)
+	r.Handle("/metrics", metrics.Handler())
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/users", uh.CreateUser)
+		r.Post("/users/register", uh.Register)
 		r.Get("/users/{user_id}", uh.GetUser)
 
 		r.Get("/profiles/{user_id}", ph.GetProfile)
@@ -83,8 +93,33 @@ func main() {
 		r.Put("/preferences/{user_id}", prh.UpdatePreferences)
 	})
 
-	log.Printf("profile-service listening on :%s", port)
-	if err = http.ListenAndServe(":"+port, r); err != nil {
-		log.Fatalf("server: %v", err)
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	serverErr := make(chan error, 1)
+	go func() {
+		log.Printf("profile-service listening on :%s", port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
+		}
+		close(serverErr)
+	}()
+
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			log.Fatalf("server: %v", err)
+		}
+	case <-ctx.Done():
+		log.Println("profile-service shutting down")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("graceful shutdown: %v", err)
 	}
 }

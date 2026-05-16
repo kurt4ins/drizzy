@@ -105,16 +105,30 @@ func (r *Repository) CreateMatch(ctx context.Context, userAID, userBID string) (
 	return m, true, nil
 }
 
+// RecalculateAllScores implements the level-3 combined ranking from the spec:
+//
+//	score = behavioral_score + referral_bonus
+//	behavioral_score = like_ratio * ln(1 + total_votes)
+//	referral_bonus   = 0.1 * COUNT(referrals.referrer_id = user_id)
+//
+// The behavioral component covers level 2 (like-ratio + match velocity proxy via
+// volume). The referral component covers level 3 (реферальная система). Level 1
+// (completeness, age/gender/city prefs) is applied at candidate-selection time
+// in TopCandidates so we don't have to materialise per-pair scores.
 func (r *Repository) RecalculateAllScores(ctx context.Context) error {
 	const q = `
 		INSERT INTO user_ratings (user_id, score, algorithm_version, recalculated_at)
 		SELECT
-			user_id,
-			(likes_received::float / GREATEST(likes_received + skips_received, 1))
-			* LN(1 + likes_received + skips_received) AS score,
-			'v1',
+			s.user_id,
+			(s.likes_received::float / GREATEST(s.likes_received + s.skips_received, 1))
+				* LN(1 + s.likes_received + s.skips_received)
+			+ 0.1 * COALESCE(ref.cnt, 0) AS score,
+			'v2',
 			NOW()
-		FROM user_behavior_stats
+		FROM user_behavior_stats s
+		LEFT JOIN (
+			SELECT referrer_id, COUNT(*) AS cnt FROM referrals GROUP BY referrer_id
+		) ref ON ref.referrer_id = s.user_id
 		ON CONFLICT (user_id) DO UPDATE
 		SET score             = EXCLUDED.score,
 		    algorithm_version = EXCLUDED.algorithm_version,
@@ -161,10 +175,15 @@ func (r *Repository) TopCandidates(ctx context.Context, viewerID string, limit i
 		  AND p.user_id NOT IN (
 		      SELECT target_user_id FROM interactions WHERE actor_user_id = $1
 		  )
-		  AND p.gender = COALESCE(
-		      (SELECT pref_gender[1] FROM user_preferences
-		       WHERE user_id = $1 AND array_length(pref_gender, 1) > 0),
-		      p.gender
+		  AND (
+		      NOT EXISTS (
+		          SELECT 1 FROM user_preferences
+		          WHERE user_id = $1 AND array_length(pref_gender, 1) > 0
+		      )
+		      OR EXISTS (
+		          SELECT 1 FROM user_preferences up
+		          WHERE up.user_id = $1 AND p.gender = ANY(up.pref_gender)
+		      )
 		  )
 		  AND p.age BETWEEN
 		      COALESCE((SELECT pref_age_min FROM user_preferences WHERE user_id = $1), p.age)

@@ -26,6 +26,16 @@ func New(endpoint, accessKey, secretKey string, useSSL bool) (*MinIO, error) {
 	return &MinIO{client: mc}, nil
 }
 
+// Ping verifies the MinIO endpoint is reachable by checking the configured
+// bucket. It is intentionally cheap (single HEAD-equivalent call).
+func (m *MinIO) Ping(ctx context.Context) error {
+	_, err := m.client.BucketExists(ctx, Bucket)
+	if err != nil {
+		return fmt.Errorf("minio ping: %w", err)
+	}
+	return nil
+}
+
 func (m *MinIO) EnsureBucket(ctx context.Context) error {
 	exists, err := m.client.BucketExists(ctx, Bucket)
 	if err != nil {

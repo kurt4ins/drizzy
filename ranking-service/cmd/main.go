@@ -3,18 +3,21 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/kurt4ins/drizzy/pkg/config"
+	"github.com/kurt4ins/drizzy/pkg/metrics"
 	"github.com/kurt4ins/drizzy/pkg/models"
 	"github.com/kurt4ins/drizzy/pkg/rabbitmq"
 	"github.com/kurt4ins/drizzy/ranking-service/internal/consumer"
@@ -76,62 +79,91 @@ func main() {
 	}
 	defer scheduler.Shutdown()
 
-	go func() {
-		port := "8081"
-		if p := os.Getenv("PORT"); p != "" {
-			port = p
+	port := "8081"
+	if p := os.Getenv("PORT"); p != "" {
+		port = p
+	}
+	muxHTTP := http.NewServeMux()
+	muxHTTP.Handle("/metrics", metrics.Handler())
+	muxHTTP.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		checks := map[string]string{"status": "ok"}
+		overall := http.StatusOK
+		hctx, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
+		defer cancel()
+		if err := pool.Ping(hctx); err != nil {
+			checks["postgres"] = err.Error()
+			overall = http.StatusServiceUnavailable
+		} else {
+			checks["postgres"] = "ok"
 		}
-		muxHTTP := http.NewServeMux()
-		muxHTTP.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		})
-		muxHTTP.HandleFunc("/internal/queue/refill", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPost {
-				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-				return
-			}
-			var body struct {
-				UserID string `json:"user_id"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.UserID == "" {
-				http.Error(w, "bad request: user_id required", http.StatusBadRequest)
-				return
-			}
-			if err := rankingWorker.RefillForUser(r.Context(), body.UserID); err != nil {
-				log.Printf("queue refill for %s: %v", body.UserID, err)
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
-			}
-			w.WriteHeader(http.StatusNoContent)
-		})
-		muxHTTP.HandleFunc("/api/v1/users/", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodGet {
-				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-				return
-			}
-			rest := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/v1/users/"), "/")
-			parts := strings.Split(rest, "/")
-			if len(parts) != 2 || parts[1] != "matches" || parts[0] == "" {
-				http.NotFound(w, r)
-				return
-			}
-			list, err := repo.ListMatchesForUser(r.Context(), parts[0])
-			if err != nil {
-				log.Printf("list matches for %s: %v", parts[0], err)
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
-			}
-			if list == nil {
-				list = []models.UserMatchEntry{}
-			}
-			w.Header().Set("Content-Type", "application/json")
-			if err := json.NewEncoder(w).Encode(list); err != nil {
-				log.Printf("encode matches: %v", err)
-			}
-		})
+		if err := rdb.Ping(hctx).Err(); err != nil {
+			checks["redis"] = err.Error()
+			overall = http.StatusServiceUnavailable
+		} else {
+			checks["redis"] = "ok"
+		}
+		if overall != http.StatusOK {
+			checks["status"] = "degraded"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(overall)
+		_ = json.NewEncoder(w).Encode(checks)
+	})
+	muxHTTP.HandleFunc("/internal/queue/refill", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			UserID string `json:"user_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.UserID == "" {
+			http.Error(w, "bad request: user_id required", http.StatusBadRequest)
+			return
+		}
+		if err := rankingWorker.RefillForUser(r.Context(), body.UserID); err != nil {
+			log.Printf("queue refill for %s: %v", body.UserID, err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	muxHTTP.HandleFunc("/api/v1/users/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		rest := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/v1/users/"), "/")
+		parts := strings.Split(rest, "/")
+		if len(parts) != 2 || parts[1] != "matches" || parts[0] == "" {
+			http.NotFound(w, r)
+			return
+		}
+		list, err := repo.ListMatchesForUser(r.Context(), parts[0])
+		if err != nil {
+			log.Printf("list matches for %s: %v", parts[0], err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		if list == nil {
+			list = []models.UserMatchEntry{}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(list); err != nil {
+			log.Printf("encode matches: %v", err)
+		}
+	})
+
+	httpSrv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           muxHTTP,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	go func() {
 		log.Printf("ranking-service HTTP on :%s", port)
-		if err := http.ListenAndServe(":"+port, muxHTTP); err != nil {
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Printf("HTTP server: %v", err)
+			stop()
 		}
 	}()
 
@@ -145,4 +177,10 @@ func main() {
 	log.Println("ranking-service started")
 	<-ctx.Done()
 	log.Println("ranking-service shutting down")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP shutdown: %v", err)
+	}
 }

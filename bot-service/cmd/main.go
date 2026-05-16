@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
+	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/kurt4ins/drizzy/bot-service/internal/client"
@@ -15,6 +19,7 @@ import (
 	"github.com/kurt4ins/drizzy/bot-service/internal/session"
 	"github.com/kurt4ins/drizzy/bot-service/internal/userstore"
 	"github.com/kurt4ins/drizzy/pkg/config"
+	"github.com/kurt4ins/drizzy/pkg/metrics"
 	"github.com/kurt4ins/drizzy/pkg/rabbitmq"
 	"github.com/redis/go-redis/v9"
 )
@@ -75,6 +80,33 @@ func main() {
 
 	registerCommands(bot)
 
+	metricsPort := "9090"
+	if p := os.Getenv("METRICS_PORT"); p != "" {
+		metricsPort = p
+	}
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", metrics.Handler())
+	metricsMux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
+	metricsSrv := &http.Server{
+		Addr:              ":" + metricsPort,
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	go func() {
+		log.Printf("bot-service metrics on :%s", metricsPort)
+		if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("metrics server: %v", err)
+		}
+	}()
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = metricsSrv.Shutdown(shutdownCtx)
+	}()
+
 	go func() {
 		if err := matchConsumer.Run(ctx); err != nil {
 			log.Printf("match consumer stopped: %v", err)
@@ -93,6 +125,11 @@ func main() {
 	u.Timeout = 60
 	updates := bot.GetUpdatesChan(u)
 
+	// Bounded dispatch pool — prevents goroutine fan-out from a chatty/abusive
+	// client. 64 in-flight updates is plenty for a single bot replica.
+	const dispatchConcurrency = 64
+	sem := make(chan struct{}, dispatchConcurrency)
+
 	log.Println("bot-service started, waiting for updates...")
 	for {
 		select {
@@ -100,7 +137,11 @@ func main() {
 			log.Println("bot-service shutting down")
 			return
 		case update := <-updates:
-			go dispatch(ctx, update, startHandler, browseHandler, myProfileHandler, matchesHandler, ss)
+			sem <- struct{}{}
+			go func(update tgbotapi.Update) {
+				defer func() { <-sem }()
+				dispatch(ctx, update, startHandler, browseHandler, myProfileHandler, matchesHandler, ss)
+			}(update)
 		}
 	}
 }

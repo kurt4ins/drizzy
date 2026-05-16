@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -10,11 +11,47 @@ import (
 )
 
 type UserHandler struct {
-	repo *repository.UserRepository
+	repo        *repository.UserRepository
+	profileRepo *repository.ProfileRepository
 }
 
-func NewUserHandler(repo *repository.UserRepository) *UserHandler {
-	return &UserHandler{repo: repo}
+func NewUserHandler(repo *repository.UserRepository, profileRepo *repository.ProfileRepository) *UserHandler {
+	return &UserHandler{repo: repo, profileRepo: profileRepo}
+}
+
+func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var req models.RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.TelegramID == 0 {
+		writeError(w, http.StatusBadRequest, "telegram_id is required")
+		return
+	}
+	if err := validateProfileRequest(req.Profile); err != "" {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	createReq := models.CreateUserRequest{
+		TelegramID:       req.TelegramID,
+		TelegramUsername: req.TelegramUsername,
+	}
+
+	// hasPreferences is always false on first registration; the wizard
+	// updates preferences in a follow-up call.
+	user, profile, created, err := h.repo.Register(r.Context(), createReq, req.Profile, false)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to register user")
+		return
+	}
+
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	writeJSON(w, status, models.RegisterResponse{User: user, Profile: profile, Created: created})
 }
 
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +82,7 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "user_id")
 	user, err := h.repo.GetByID(r.Context(), userID)
 	if err != nil {
-		if err.Error() == "user not found" {
+		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
 			return
 		}

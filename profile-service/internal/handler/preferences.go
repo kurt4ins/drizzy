@@ -28,6 +28,10 @@ func (h *PrefsHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if msg := validatePreferencesRequest(req); msg != "" {
+		writeError(w, http.StatusBadRequest, msg)
+		return
+	}
 
 	prefs, err := h.repo.UpsertPreferences(r.Context(), userID, req)
 	if err != nil {

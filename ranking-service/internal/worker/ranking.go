@@ -9,11 +9,13 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/kurt4ins/drizzy/pkg/metrics"
 	"github.com/kurt4ins/drizzy/ranking-service/internal/repository"
 )
 
 const (
 	TypeRecalculateRankings = "ranking:recalculate"
+	SchedulerCron           = "*/15 * * * *"
 	discoveryQueueTTL       = 30 * time.Minute
 	discoveryQueueSize      = 10
 )
@@ -39,6 +41,7 @@ func (w *RankingWorker) ProcessTask(ctx context.Context, _ *asynq.Task) error {
 	if err := w.refillDiscoveryQueues(ctx); err != nil {
 		return fmt.Errorf("refill queues: %w", err)
 	}
+	metrics.RankingRecalcDuration.Observe(time.Since(start).Seconds())
 	log.Printf("ranking worker: finished in %s", time.Since(start))
 	return nil
 }
@@ -78,6 +81,7 @@ func (w *RankingWorker) RefillForUser(ctx context.Context, userID string) error 
 	if _, err = pipe.Exec(ctx); err != nil {
 		return fmt.Errorf("redis pipeline for %s: %w", userID, err)
 	}
+	metrics.DiscoveryQueueRefills.Inc()
 	return nil
 }
 
@@ -88,7 +92,7 @@ func NewScheduler(redisAddr string) *asynq.Scheduler {
 			Location: time.UTC,
 		},
 	)
-	_, _ = s.Register("*/1 * * * *", asynq.NewTask(TypeRecalculateRankings, nil))
+	_, _ = s.Register(SchedulerCron, asynq.NewTask(TypeRecalculateRankings, nil))
 	return s
 }
 

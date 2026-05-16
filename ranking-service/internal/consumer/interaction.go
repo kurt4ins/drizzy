@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kurt4ins/drizzy/pkg/events"
+	"github.com/kurt4ins/drizzy/pkg/metrics"
 	"github.com/kurt4ins/drizzy/pkg/rabbitmq"
 	"github.com/kurt4ins/drizzy/ranking-service/internal/repository"
 )
@@ -71,6 +72,7 @@ func (ic *InteractionConsumer) handle(ctx context.Context, body []byte) error {
 	if err = ic.repo.UpdateBehaviorStats(ctx, p.TargetUserID, action); err != nil {
 		return err
 	}
+	metrics.InteractionsTotal.WithLabelValues(action).Inc()
 
 	if action != "like" {
 		return nil
@@ -102,6 +104,7 @@ func (ic *InteractionConsumer) handle(ctx context.Context, body []byte) error {
 		return nil
 	}
 
+	metrics.MatchesTotal.Inc()
 	log.Printf("match created: %s (%s <-> %s)", match.ID, match.UserAID, match.UserBID)
 
 	matchEnv := events.Envelope{

@@ -33,7 +33,7 @@ func (r *ProfileRepository) Get(ctx context.Context, userID string) (models.Prof
 		&p.Latitude, &p.Longitude, &interestsJSON, &p.CompletenessScore, &p.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return models.Profile{}, fmt.Errorf("profile not found")
+		return models.Profile{}, ErrNotFound
 	}
 	if err != nil {
 		return models.Profile{}, fmt.Errorf("get profile: %w", err)

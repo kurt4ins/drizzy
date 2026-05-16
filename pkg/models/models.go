@@ -44,6 +44,18 @@ type CreateUserResponse struct {
 	Created bool `json:"created"`
 }
 
+type RegisterRequest struct {
+	TelegramID       int64                `json:"telegram_id"`
+	TelegramUsername string               `json:"telegram_username,omitempty"`
+	Profile          UpdateProfileRequest `json:"profile"`
+}
+
+type RegisterResponse struct {
+	User    User    `json:"user"`
+	Profile Profile `json:"profile"`
+	Created bool    `json:"created"`
+}
+
 type UpdateProfileRequest struct {
 	Name      string   `json:"name"`
 	Age       int      `json:"age"`

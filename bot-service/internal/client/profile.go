@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,26 @@ import (
 
 	"github.com/kurt4ins/drizzy/pkg/models"
 )
+
+// HTTPError carries the HTTP status and decoded error body for a failed
+// profile-service request.
+type HTTPError struct {
+	Status int
+	Body   string
+}
+
+func (e *HTTPError) Error() string {
+	if e.Body != "" {
+		return fmt.Sprintf("profile-service status %d: %s", e.Status, e.Body)
+	}
+	return fmt.Sprintf("profile-service status %d", e.Status)
+}
+
+// IsNotFound reports whether err is an HTTPError with status 404.
+func IsNotFound(err error) bool {
+	var httpErr *HTTPError
+	return errors.As(err, &httpErr) && httpErr.Status == http.StatusNotFound
+}
 
 type ProfileClient struct {
 	baseURL    string
@@ -28,6 +49,14 @@ func NewProfileClient(baseURL string) *ProfileClient {
 func (c *ProfileClient) CreateUser(ctx context.Context, req models.CreateUserRequest) (models.CreateUserResponse, error) {
 	var resp models.CreateUserResponse
 	err := c.do(ctx, http.MethodPost, "/api/v1/users", req, &resp)
+	return resp, err
+}
+
+// Register atomically creates (or updates) the user and upserts their profile in
+// a single round-trip.
+func (c *ProfileClient) Register(ctx context.Context, req models.RegisterRequest) (models.RegisterResponse, error) {
+	var resp models.RegisterResponse
+	err := c.do(ctx, http.MethodPost, "/api/v1/users/register", req, &resp)
 	return resp, err
 }
 
@@ -55,19 +84,20 @@ func (c *ProfileClient) UpdatePreferences(ctx context.Context, userID string, re
 	return resp, err
 }
 
-func (c *ProfileClient) UploadPhoto(ctx context.Context, userID, telegramFileID string, data []byte) (models.UploadPhotoResponse, error) {
+func (c *ProfileClient) UploadPhoto(ctx context.Context, userID, telegramFileID string, body io.Reader, size int64) (models.UploadPhotoResponse, error) {
 	url := c.baseURL + "/api/v1/profiles/" + userID + "/photos"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
 	if err != nil {
 		return models.UploadPhotoResponse{}, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "image/jpeg")
-	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(data)))
+	if size > 0 {
+		req.ContentLength = size
+	}
 	if telegramFileID != "" {
 		req.Header.Set("X-Telegram-File-ID", telegramFileID)
 	}
-	req.ContentLength = int64(len(data))
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -76,12 +106,7 @@ func (c *ProfileClient) UploadPhoto(ctx context.Context, userID, telegramFileID 
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		raw, _ := io.ReadAll(resp.Body)
-		var errResp models.ErrorResponse
-		if json.Unmarshal(raw, &errResp) == nil && errResp.Error != "" {
-			return models.UploadPhotoResponse{}, fmt.Errorf("profile-service upload photo: %s", errResp.Error)
-		}
-		return models.UploadPhotoResponse{}, fmt.Errorf("profile-service upload photo: status %d", resp.StatusCode)
+		return models.UploadPhotoResponse{}, httpErrorFrom(resp)
 	}
 
 	var out models.UploadPhotoResponse
@@ -95,17 +120,12 @@ func (c *ProfileClient) GetPrimaryPhotoFileID(ctx context.Context, userID string
 	var ph models.ProfilePhoto
 	err := c.do(ctx, http.MethodGet, "/api/v1/profiles/"+userID+"/photos/primary/meta", nil, &ph)
 	if err != nil {
-		if isNotFound(err) {
+		if IsNotFound(err) {
 			return "", nil
 		}
 		return "", err
 	}
 	return ph.TelegramFileID, nil
-}
-
-func isNotFound(err error) bool {
-	return err != nil && (strings.Contains(err.Error(), "status 404") ||
-		strings.Contains(err.Error(), "not found"))
 }
 
 func (c *ProfileClient) do(ctx context.Context, method, path string, body, out any) error {
@@ -135,13 +155,21 @@ func (c *ProfileClient) do(ctx context.Context, method, path string, body, out a
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		raw, _ := io.ReadAll(resp.Body)
-		var errResp models.ErrorResponse
-		if json.Unmarshal(raw, &errResp) == nil && errResp.Error != "" {
-			return fmt.Errorf("profile-service %s %s: %s", method, path, errResp.Error)
-		}
-		return fmt.Errorf("profile-service %s %s: status %d", method, path, resp.StatusCode)
+		return httpErrorFrom(resp)
 	}
 
+	if out == nil {
+		return nil
+	}
 	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+func httpErrorFrom(resp *http.Response) *HTTPError {
+	raw, _ := io.ReadAll(resp.Body)
+	body := strings.TrimSpace(string(raw))
+	var errResp models.ErrorResponse
+	if json.Unmarshal(raw, &errResp) == nil && errResp.Error != "" {
+		body = errResp.Error
+	}
+	return &HTTPError{Status: resp.StatusCode, Body: body}
 }

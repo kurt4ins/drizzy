@@ -286,13 +286,14 @@ func (h *StartHandler) uploadPhotoAndContinue(
 	reattachSkipOnError bool,
 	onSuccess func(),
 ) {
-	fileBytes, err := h.downloadTelegramFile(photo.FileID)
+	body, size, err := h.openTelegramFile(photo.FileID)
 	if err != nil {
 		log.Printf("download telegram file: %v", err)
 		h.photoUploadErrorReply(chatID, "Не удалось загрузить фото. Попробуй ещё раз:", reattachSkipOnError)
 		return
 	}
-	if _, err = h.profile.UploadPhoto(ctx, userID, photo.FileID, fileBytes); err != nil {
+	defer body.Close()
+	if _, err = h.profile.UploadPhoto(ctx, userID, photo.FileID, body, size); err != nil {
 		log.Printf("upload photo: %v", err)
 		h.photoUploadErrorReply(chatID, "Не удалось сохранить фото. Попробуй ещё раз:", reattachSkipOnError)
 		return
@@ -309,28 +310,23 @@ func (h *StartHandler) photoUploadErrorReply(chatID int64, text string, reattach
 }
 
 func (h *StartHandler) saveProfileData(ctx context.Context, telegramID int64, username string, chatID int64, data map[string]string) (string, bool) {
-	resp, err := h.profile.CreateUser(ctx, models.CreateUserRequest{
+	age, _ := strconv.Atoi(data["age"])
+	req := models.RegisterRequest{
 		TelegramID:       telegramID,
 		TelegramUsername: username,
-	})
+		Profile: models.UpdateProfileRequest{
+			Name:      data["name"],
+			Age:       age,
+			Gender:    data["gender"],
+			City:      data["city"],
+			Bio:       data["bio"],
+			Interests: parseInterests(data["interests"]),
+		},
+	}
+	resp, err := h.profile.Register(ctx, req)
 	if err != nil {
-		log.Printf("create user: %v", err)
+		log.Printf("register: %v", err)
 		h.send(chatID, "Что-то пошло не так. Попробуй /start снова.")
-		return "", false
-	}
-
-	age, _ := strconv.Atoi(data["age"])
-	req := models.UpdateProfileRequest{
-		Name:      data["name"],
-		Age:       age,
-		Gender:    data["gender"],
-		City:      data["city"],
-		Bio:       data["bio"],
-		Interests: parseInterests(data["interests"]),
-	}
-	if _, err = h.profile.UpdateProfile(ctx, resp.User.ID, req); err != nil {
-		log.Printf("update profile: %v", err)
-		h.send(chatID, "Не удалось сохранить профиль. Попробуй /start снова.")
 		return "", false
 	}
 	return resp.User.ID, true
@@ -435,17 +431,23 @@ func (h *StartHandler) finishProfileRefill(ctx context.Context, telegramID int64
 	h.sendWithReplyKeyboard(chatID, text, keyboard.MainMenu())
 }
 
-func (h *StartHandler) downloadTelegramFile(fileID string) ([]byte, error) {
+// openTelegramFile returns a streaming reader for the Telegram file along with
+// the Content-Length advertised by Telegram (0 if unknown). The caller MUST
+// close the returned body.
+func (h *StartHandler) openTelegramFile(fileID string) (io.ReadCloser, int64, error) {
 	url, err := h.bot.GetFileDirectURL(fileID)
 	if err != nil {
-		return nil, fmt.Errorf("get direct url: %w", err)
+		return nil, 0, fmt.Errorf("get direct url: %w", err)
 	}
 	resp, err := http.Get(url) //nolint:noctx
 	if err != nil {
-		return nil, fmt.Errorf("download: %w", err)
+		return nil, 0, fmt.Errorf("download: %w", err)
 	}
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		resp.Body.Close()
+		return nil, 0, fmt.Errorf("telegram file download: status %d", resp.StatusCode)
+	}
+	return resp.Body, resp.ContentLength, nil
 }
 
 func (h *StartHandler) advance(ctx context.Context, telegramID int64, chatID int64, field, value, nextStep, prompt string) {
